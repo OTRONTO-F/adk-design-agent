@@ -1,29 +1,27 @@
-# Social Media Design Agent
+# Virtual Try-On AI Agent
 
-An intelligent multi-agent system built with Google ADK for creating and iterating on social media content. This agent demonstrates advanced AI orchestration patterns with two distinct operational modes: fast interactive design assistance and autonomous quality assurance through "Deep Think Mode."
+An intelligent AI agent built with Google ADK for virtual clothing try-on. Upload a person image and a garment image, and let AI show you how the outfit would look!
 
 ## Features
 
-- **Dual-Mode Operation**: Choose between speed (Regular Mode) or quality (Deep Think Mode)
-- **Intelligent Image Generation**: Powered by Gemini's image generation capabilities
-- **Reference Image Support**: Upload images for style and composition guidance
-- **Versioned Asset Management**: Automatic versioning and organization of created content
-- **Autonomous Quality Loop**: Multi-agent review and refinement system
-- **Context Awareness**: Maintains session state for iterative improvements
+- **Virtual Try-On**: Upload person and garment images to see realistic try-on results
+- **9:16 Aspect Ratio**: Optimized for portrait/mobile viewing
+- **Realistic Results**: Powered by Gemini's advanced image generation
+- **Session Management**: Track all uploaded images and try-on results
+- **Easy Image Management**: Automatic versioning and organization
 
 ## Architecture
 
-The agent consists of several specialized sub-agents:
+The agent consists of specialized components:
 
-- **Main Social Media Agent**: Handles user interactions and routing
-- **Content Generation Agent**: Creates and edits images with detailed instructions
-- **Content Review Agent**: Evaluates quality across multiple dimensions
-- **Loop Control Agent**: Makes intelligent decisions about iteration continuation
-- **Deep Think Loop**: Orchestrates autonomous creative iteration
+- **Virtual Try-On Agent**: Handles user interactions and image processing
+- **Image Upload Handler**: Automatically saves uploaded images
+- **Try-On Generator**: Creates realistic virtual try-on results
+- **Artifact Manager**: Organizes all images and results
 
 ## Prerequisites
 
-- Python 3.13+
+- Python 3.10+
 - Google ADK (`pip install google-adk`)
 - Gemini API key with image generation access
 
@@ -32,7 +30,7 @@ The agent consists of several specialized sub-agents:
 1. **Clone the repository**:
    ```bash
    git clone <repository-url>
-   cd social_media_agent
+   cd adk-design-agent
    ```
 
 2. **Install dependencies**:
@@ -44,6 +42,8 @@ The agent consists of several specialized sub-agents:
    Create a `.env` file in the project root:
    ```bash
    GEMINI_API_KEY=your_gemini_api_key_here
+   GOOGLE_API_KEY=your_gemini_api_key_here
+   GOOGLE_GENAI_USE_VERTEXAI=false
    ```
 
 4. **Verify installation**:
@@ -53,7 +53,7 @@ The agent consists of several specialized sub-agents:
 
 ## Running the Agent
 
-### Development UI (Recommended for testing)
+### Development UI (Recommended)
 
 Start the ADK development server:
 
@@ -61,22 +61,43 @@ Start the ADK development server:
 adk web
 ```
 
-Then navigate to `http://127.0.0.1:8000/dev-ui` in your browser and interact with the agent through the web interface.
+Then navigate to `http://127.0.0.1:8000/dev-ui?app=adk-design-agent` in your browser.
 
 ## Usage Examples
 
-### Regular Mode (Fast)
-
-Simple, direct interaction for quick iterations:
+### Basic Virtual Try-On
 
 ```
-User: "Create a holiday promotion poster in 16:9 aspect ratio"
-Agent: [Generates image quickly using generate_image tool]
-User: "Make the text larger"
-Agent: [Uses edit_image tool for quick refinement]
+User: "Hi, I want to try on some clothes"
+Agent: "Great! Please upload two images:
+        1. A person image (9:16 aspect ratio)
+        2. A garment/clothing image (9:16 aspect ratio)"
+
+User: [Uploads person image]
+Agent: "✅ Person image received and saved as reference_image_v1.png"
+
+User: [Uploads garment image]  
+Agent: "✅ Garment image received and saved as reference_image_v2.png
+        
+        Ready to proceed with virtual try-on?"
+
+User: "Yes, show me how it looks!"
+Agent: [Calls virtual_tryon tool]
+       "✅ Virtual Try-On Successful!
+        
+        Result saved as: tryon_result_v1.png
+        The outfit looks great! Would you like to try another garment?"
 ```
 
-### Deep Think Mode (Quality)
+### Try Multiple Garments
+
+```
+User: "Let me try another shirt"
+User: [Uploads new garment image]
+Agent: "✅ New garment saved! Shall I create a new try-on?"
+User: "Yes"
+Agent: [Creates new try-on with person_image_v1 and new garment]
+```
 
 Autonomous quality assurance with multiple iterations:
 

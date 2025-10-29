@@ -1,6 +1,8 @@
 import logging
 import uuid
+import os
 from typing import Optional
+from dotenv import load_dotenv
 from google.adk.agents import LlmAgent
 from google.adk.agents.callback_context import CallbackContext
 from google.adk.models import LlmRequest
@@ -8,9 +10,12 @@ from google.adk.artifacts import InMemoryArtifactService
 from google.adk.runners import Runner
 from google.adk.tools.load_artifacts_tool import load_artifacts_tool
 from google.genai.types import Content, Part
-from .tools.post_creator_tool import generate_image, edit_image, list_asset_versions, list_reference_images
+from .tools.tryon_tool import virtual_tryon, list_tryon_results, list_reference_images
 from .deep_think_loop import deep_think_agent_tool, deep_think_loop
 from .prompt import SOCIAL_MEDIA_AGENT_INSTRUCTION
+
+# Load environment variables
+load_dotenv()
 
 # --- Configure Logging ---
 logging.basicConfig(level=logging.INFO)
@@ -70,10 +75,10 @@ async def process_reference_images_callback(
 
 # --- Define the Agent ---
 root_agent = LlmAgent(
-    name="social_media_agent",
+    name="virtual_tryon_agent",
     model="gemini-2.5-flash",
     instruction=SOCIAL_MEDIA_AGENT_INSTRUCTION,
-    tools=[generate_image, edit_image, list_asset_versions, list_reference_images, load_artifacts_tool],
+    tools=[virtual_tryon, list_tryon_results, list_reference_images, load_artifacts_tool],
     sub_agents=[deep_think_loop],
     before_model_callback=process_reference_images_callback
 )
@@ -81,7 +86,7 @@ root_agent = LlmAgent(
 # --- Configure and Expose the Runner ---
 runner = Runner(
     agent=root_agent,
-    app_name="social_media_agent_app",
+    app_name="virtual_tryon_app",
     session_service=None,  # Using default InMemorySessionService
     artifact_service=InMemoryArtifactService(),
 )

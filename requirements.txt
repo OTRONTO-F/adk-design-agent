@@ -1,3 +1,4 @@
 google-adk
 google-genai
 pillow
+python-dotenv

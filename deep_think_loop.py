@@ -7,7 +7,7 @@ from google.genai.types import Content, Part
 from pydantic import BaseModel, Field
 from google.adk.tools.agent_tool import AgentTool
 from google.adk.tools.load_artifacts_tool import load_artifacts_tool
-from .tools.post_creator_tool import generate_image, edit_image
+from .tools.tryon_tool import virtual_tryon, list_tryon_results, list_reference_images
 from .prompt import (
     CONTENT_GENERATION_AGENT_INSTRUCTION,
     CONTENT_REVIEW_AGENT_INSTRUCTION,
@@ -24,23 +24,24 @@ class LoopDecision(BaseModel):
     reason: str = Field(description="Brief explanation for the decision")
 
 class ContentReview(BaseModel):
-    """Review feedback for generated marketing content."""
-    adheres_to_request: bool = Field(description="Does the content match the user's original request?")
-    visual_appeal: bool = Field(description="Is the visual composition appealing and well-designed?")
-    obvious_issues: bool = Field(description="Are there any obvious problems or issues?")
-    typos_in_text: bool = Field(description="Are there any unintentional typos in the text overlayed on the image?")
+    """Review feedback for generated virtual try-on content."""
+    adheres_to_request: bool = Field(description="Does the try-on result match the user's request?")
+    visual_appeal: bool = Field(description="Is the try-on realistic and visually appealing?")
+    obvious_issues: bool = Field(description="Are there any obvious problems (wrong fit, distortions, etc)?")
+    garment_fit: bool = Field(description="Does the garment fit naturally on the person?")
+    realistic_lighting: bool = Field(description="Is the lighting and shadowing realistic?")
     feedback_addressed: bool = Field(description="Has previous feedback been properly addressed?")
     specific_issues: list[str] = Field(default=[], description="List of specific problems found")
     improvement_suggestions: list[str] = Field(default=[], description="Specific actionable improvements")
 
 content_generation_agent = LlmAgent(
-    name="ContentGenAgent",
+    name="TryOnGenAgent",
     instruction=CONTENT_GENERATION_AGENT_INSTRUCTION,
-    tools=[generate_image, edit_image, load_artifacts_tool]
+    tools=[virtual_tryon, list_reference_images, load_artifacts_tool]
 )
 
 content_review_agent = LlmAgent(
-    name="ContentReviewAgent",
+    name="TryOnReviewAgent",
     model="gemini-2.5-flash",
     instruction=CONTENT_REVIEW_AGENT_INSTRUCTION,
     output_schema=ContentReview,
@@ -67,10 +68,18 @@ class LoopTerminationAgent(BaseAgent):
         loop_decision = ctx.session.state.get("loop_decision")
         iteration_count = ctx.session.state.get("deep_think_iteration", 0)
         
+        # Check if a try-on image was successfully generated
+        last_generated = ctx.session.state.get("last_generated_image")
+        
         should_continue = True
         reason = "No decision found"
         
-        if isinstance(loop_decision, LoopDecision):
+        # CRITICAL: Stop immediately after first successful generation
+        # User wants to return to root agent after gen completes
+        if iteration_count >= 1 and last_generated:
+            should_continue = False
+            reason = "Virtual try-on generated successfully. Returning to main agent for user review."
+        elif isinstance(loop_decision, LoopDecision):
             should_continue = loop_decision.should_continue
             reason = loop_decision.reason
         elif isinstance(loop_decision, dict):
@@ -92,7 +101,7 @@ class LoopTerminationAgent(BaseAgent):
             final_image = ctx.session.state.get("last_generated_image")
             yield Event(
                 author=self.name,
-                content=Content(parts=[Part(text=f"Deep think mode complete: {reason}. Final marketing content: {final_image}")]),
+                content=Content(parts=[Part(text=f"✅ Virtual try-on complete! Result: {final_image}\n\nReturning to main menu. You can now:\n• View the result\n• Request modifications\n• Generate another try-on")]),
                 actions=EventActions(
                     state_delta={
                         "deep_think_mode": False,
@@ -151,17 +160,17 @@ class DeepThinkPreparationAgent(BaseAgent):
 
 
 # Create the deep think loop structure
+# SIMPLIFIED: Only generate once, no review/refinement loop
+# User can manually request improvements if needed
 deep_think_loop = LoopAgent(
     name="DeepThinkLoop",
     sub_agents=[
         DeepThinkPreparationAgent(name="DeepThinkPreparationAgent"),
         prompt_capture_agent,
         content_generation_agent,
-        content_review_agent,
-        loop_control_agent,
         LoopTerminationAgent(name="LoopTerminationAgent"),
     ],
-    max_iterations=5,
+    max_iterations=1,  # Only run once
 )
 
 # Create an agent tool wrapper for the deep think loop (used if we don't want the user to see the outputs of the deep think loop)
