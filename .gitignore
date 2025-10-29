@@ -3,6 +3,9 @@
 pytest.ini
 todo-list.md
 
+# Logs
+*.log
+
 # Python
 __pycache__/
 *.py[cod]

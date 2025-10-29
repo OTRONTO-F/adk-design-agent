@@ -5,6 +5,8 @@ from google.genai import types
 from google.adk.tools import ToolContext
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv
+from PIL import Image
+import io
 
 load_dotenv()
 
@@ -37,6 +39,37 @@ def update_asset_version(tool_context: ToolContext, asset_name: str, version: in
 def create_versioned_filename(asset_name: str, version: int, file_extension: str = "png") -> str:
     """Create a versioned filename for an asset."""
     return f"{asset_name}_v{version}.{file_extension}"
+
+def validate_image_aspect_ratio(image_data: bytes, expected_ratio: tuple = (9, 16), tolerance: float = 0.1) -> tuple[bool, str]:
+    """
+    Validate if image has the expected aspect ratio (default 9:16 for portrait).
+    
+    Args:
+        image_data: Image binary data
+        expected_ratio: Tuple of (width, height) ratio
+        tolerance: Acceptable deviation from exact ratio (0.1 = 10%)
+    
+    Returns:
+        Tuple of (is_valid, message)
+    """
+    try:
+        image = Image.open(io.BytesIO(image_data))
+        width, height = image.size
+        
+        # Calculate actual and expected ratios
+        actual_ratio = width / height
+        expected = expected_ratio[0] / expected_ratio[1]
+        
+        # Check if within tolerance
+        ratio_diff = abs(actual_ratio - expected) / expected
+        
+        if ratio_diff <= tolerance:
+            return True, f"✅ Image aspect ratio: {width}x{height} (ratio: {actual_ratio:.2f})"
+        else:
+            return False, f"⚠️ Image aspect ratio {width}x{height} (ratio: {actual_ratio:.2f}) is not close to {expected_ratio[0]}:{expected_ratio[1]} (expected: {expected:.2f}). Results may not be optimal."
+    except Exception as e:
+        logger.warning(f"Could not validate image aspect ratio: {e}")
+        return True, "⚠️ Could not validate aspect ratio, proceeding anyway"
 
 async def load_image(tool_context: ToolContext, filename: str):
     """Load an uploaded image artifact by filename."""
@@ -101,6 +134,29 @@ def list_reference_images(tool_context: ToolContext) -> str:
         info_lines.append("   2. Garment/clothing image (9:16 ratio)")
     
     return "\n".join(info_lines)
+
+
+class ClearImagesInput(BaseModel):
+    """Input model for clearing reference images."""
+    confirm: bool = Field(..., description="Set to True to confirm deletion of all reference images")
+
+
+def clear_reference_images(tool_context: ToolContext, inputs: ClearImagesInput) -> str:
+    """Clear all uploaded reference images from the session."""
+    if not inputs.confirm:
+        return "❌ Deletion cancelled. Set confirm=True to delete all reference images."
+    
+    reference_images = tool_context.state.get("reference_images", {})
+    if not reference_images:
+        return "No reference images to delete."
+    
+    count = len(reference_images)
+    
+    # Clear the state
+    tool_context.state["reference_images"] = {}
+    tool_context.state["latest_reference_image"] = None
+    
+    return f"✅ Successfully deleted {count} reference image(s). You can now upload new images."
 
 
 class VirtualTryOnInput(BaseModel):

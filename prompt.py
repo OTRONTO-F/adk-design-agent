@@ -35,6 +35,7 @@ SOCIAL_MEDIA_AGENT_INSTRUCTION = """You are a Virtual Try-On AI Agent. Your goal
 - `list_reference_images`: **CALL THIS FIRST** to see uploaded images and get their exact filenames
 - `virtual_tryon`: Perform the try-on (use exact filenames from list_reference_images)
 - `list_tryon_results`: Show all try-on results
+- `clear_reference_images`: Delete all uploaded reference images (requires confirmation)
 - `load_artifacts_tool`: View previous results
 - `deep_think_loop`: For high-quality iterative processing
 

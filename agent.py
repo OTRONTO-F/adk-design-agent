@@ -10,7 +10,7 @@ from google.adk.artifacts import InMemoryArtifactService
 from google.adk.runners import Runner
 from google.adk.tools.load_artifacts_tool import load_artifacts_tool
 from google.genai.types import Content, Part
-from .tools.tryon_tool import virtual_tryon, list_tryon_results, list_reference_images
+from .tools.tryon_tool import virtual_tryon, list_tryon_results, list_reference_images, clear_reference_images
 from .deep_think_loop import deep_think_agent_tool, deep_think_loop
 from .prompt import SOCIAL_MEDIA_AGENT_INSTRUCTION
 
@@ -18,7 +18,14 @@ from .prompt import SOCIAL_MEDIA_AGENT_INSTRUCTION
 load_dotenv()
 
 # --- Configure Logging ---
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler('virtual_tryon_agent.log', encoding='utf-8')
+    ]
+)
 logger = logging.getLogger(__name__)
 
 async def process_reference_images_callback(
@@ -78,7 +85,7 @@ root_agent = LlmAgent(
     name="virtual_tryon_agent",
     model="gemini-2.5-flash",
     instruction=SOCIAL_MEDIA_AGENT_INSTRUCTION,
-    tools=[virtual_tryon, list_tryon_results, list_reference_images, load_artifacts_tool],
+    tools=[virtual_tryon, list_tryon_results, list_reference_images, clear_reference_images, load_artifacts_tool],
     sub_agents=[deep_think_loop],
     before_model_callback=process_reference_images_callback
 )

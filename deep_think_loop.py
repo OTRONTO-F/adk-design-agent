@@ -7,7 +7,7 @@ from google.genai.types import Content, Part
 from pydantic import BaseModel, Field
 from google.adk.tools.agent_tool import AgentTool
 from google.adk.tools.load_artifacts_tool import load_artifacts_tool
-from .tools.tryon_tool import virtual_tryon, list_tryon_results, list_reference_images
+from .tools.tryon_tool import virtual_tryon, list_tryon_results, list_reference_images, clear_reference_images
 from .prompt import (
     CONTENT_GENERATION_AGENT_INSTRUCTION,
     CONTENT_REVIEW_AGENT_INSTRUCTION,
@@ -157,7 +157,6 @@ class DeepThinkPreparationAgent(BaseAgent):
             author=self.name,
             content=Content(parts=[Part(text=context_message)]),
         )
-
 
 # Create the deep think loop structure
 # SIMPLIFIED: Only generate once, no review/refinement loop
