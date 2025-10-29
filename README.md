@@ -138,8 +138,9 @@ social_media_agent/
 ├── deep_think_loop.py       # Deep think mode implementation
 ├── tools/
 │   └── post_creator_tool.py # Image generation and editing tools
+|   └── tryon_tool.py        # Tools Use
 ├── requirements.txt         # Python dependencies
-└── README.md               # This file
+└── README.md                # This file
 ```
 
 ## Configuration
