@@ -7,11 +7,16 @@ from pydantic import BaseModel, Field
 from dotenv import load_dotenv
 from PIL import Image
 import io
+from .rate_limiter import get_rate_limiter
 
 load_dotenv()
 
 # Configure logging
 logger = logging.getLogger(__name__)
+
+# Get rate limiter configuration from environment
+RATE_LIMIT_COOLDOWN = float(os.getenv("RATE_LIMIT_COOLDOWN", "5.0"))
+rate_limiter = get_rate_limiter(RATE_LIMIT_COOLDOWN)
 
 def get_next_version_number(tool_context: ToolContext, asset_name: str) -> int:
     """Get the next version number for a given asset name."""
@@ -159,6 +164,33 @@ def clear_reference_images(tool_context: ToolContext, inputs: ClearImagesInput) 
     return f"✅ Successfully deleted {count} reference image(s). You can now upload new images."
 
 
+def get_rate_limit_status(tool_context: ToolContext) -> str:
+    """Get current rate limit status and statistics."""
+    stats = rate_limiter.get_stats()
+    
+    status_lines = ["📊 Rate Limit Status:"]
+    status_lines.append(f"   • Cooldown period: {stats['cooldown_seconds']:.1f} seconds")
+    status_lines.append(f"   • Total API calls made: {stats['total_calls']}")
+    
+    if stats['last_call_time']:
+        status_lines.append(f"   • Last API call: {stats['last_call_time']}")
+    else:
+        status_lines.append(f"   • Last API call: Never")
+    
+    time_remaining = stats['time_until_next_call']
+    if time_remaining > 0:
+        status_lines.append(f"   • Time until next call: {time_remaining:.1f} seconds")
+        status_lines.append(f"   • Status: ⏳ Cooldown active")
+    else:
+        status_lines.append(f"   • Time until next call: Ready now")
+        status_lines.append(f"   • Status: ✅ Ready for API call")
+    
+    status_lines.append(f"\n💡 Tip: Rate limiting prevents API overuse and ensures stable service.")
+    status_lines.append(f"   You can adjust RATE_LIMIT_COOLDOWN in .env file (currently {RATE_LIMIT_COOLDOWN}s)")
+    
+    return "\n".join(status_lines)
+
+
 class VirtualTryOnInput(BaseModel):
     person_image_filename: str = Field(..., description="Filename of the person image that was uploaded (e.g., 'reference_image_v1.png')")
     garment_image_filename: str = Field(..., description="Filename of the garment/clothing image that was uploaded (e.g., 'reference_image_v2.png')")
@@ -171,6 +203,12 @@ async def virtual_tryon(tool_context: ToolContext, inputs: VirtualTryOnInput) ->
     if "GEMINI_API_KEY" not in os.environ:
         raise ValueError("GEMINI_API_KEY environment variable not set.")
 
+    # Check rate limiting
+    if not rate_limiter.can_make_call():
+        wait_time = rate_limiter.time_until_next_call()
+        logger.info(f"Rate limit: Need to wait {wait_time:.1f}s before next API call")
+        return f"⏳ Rate limit active. Please wait {wait_time:.1f} seconds before making another try-on request.\n\nThis helps prevent API overuse and ensures stable service. Current cooldown: {RATE_LIMIT_COOLDOWN}s between requests."
+    
     print("Starting virtual try-on...")
     try:
         client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
@@ -226,6 +264,10 @@ Output: Generate the virtual try-on image in 9:16 portrait aspect ratio."""
                 "TEXT",
             ],
         )
+        
+        # Record API call for rate limiting
+        rate_limiter.record_call()
+        logger.info(f"API call recorded. Total calls: {rate_limiter.total_calls}")
         
         try:
             # Generate the try-on result using Gemini's generate_content_stream (like original repo)
@@ -294,3 +336,173 @@ The try-on image has been generated and saved. You can view it in the artifacts 
     except Exception as e:
         logger.error(f"Virtual try-on error: {e}")
         return f"❌ Virtual try-on failed: {e}"
+
+
+class CompareTryOnInput(BaseModel):
+    """Input model for comparing try-on results."""
+    result_filenames: list[str] = Field(..., description="List of try-on result filenames to compare (e.g., ['tryon_result_v1.png', 'tryon_result_v2.png'])")
+    show_details: bool = Field(default=True, description="Whether to show detailed comparison information")
+
+
+def compare_tryon_results(tool_context: ToolContext, inputs: CompareTryOnInput) -> str:
+    """
+    Compare multiple virtual try-on results side-by-side.
+    
+    Shows version history, metadata, and helps user select the best result.
+    """
+    if len(inputs.result_filenames) < 2:
+        return "❌ Please provide at least 2 result filenames to compare.\n\nExample: ['tryon_result_v1.png', 'tryon_result_v2.png']"
+    
+    if len(inputs.result_filenames) > 4:
+        return "❌ Maximum 4 results can be compared at once. Please select up to 4 filenames."
+    
+    # Get all asset history
+    asset_versions = tool_context.state.get("asset_versions", {})
+    
+    if not asset_versions:
+        return "No try-on results have been created yet. Generate some results first using virtual_tryon."
+    
+    comparison_lines = ["📊 Virtual Try-On Results Comparison"]
+    comparison_lines.append("=" * 70)
+    comparison_lines.append("")
+    
+    # Build comparison table
+    results_data = []
+    
+    for idx, filename in enumerate(inputs.result_filenames, 1):
+        # Extract asset name and version from filename
+        # Format: asset_name_vX.png
+        try:
+            if "_v" in filename and ".png" in filename:
+                parts = filename.replace(".png", "").split("_v")
+                asset_name = parts[0]
+                version = int(parts[1])
+            else:
+                comparison_lines.append(f"⚠️  Could not parse filename: {filename}")
+                continue
+            
+            # Get history for this asset
+            history_key = f"{asset_name}_history"
+            history = tool_context.state.get(history_key, [])
+            
+            # Find this specific version in history
+            version_data = None
+            for item in history:
+                if item.get("version") == version:
+                    version_data = item
+                    break
+            
+            if not version_data:
+                comparison_lines.append(f"⚠️  Version data not found for: {filename}")
+                continue
+            
+            results_data.append({
+                "index": idx,
+                "filename": filename,
+                "asset_name": asset_name,
+                "version": version,
+                "data": version_data
+            })
+            
+        except Exception as e:
+            logger.warning(f"Error processing filename {filename}: {e}")
+            comparison_lines.append(f"⚠️  Error processing: {filename}")
+    
+    if not results_data:
+        return "❌ No valid results found to compare. Check your filenames."
+    
+    # Display comparison header
+    comparison_lines.append(f"Comparing {len(results_data)} results:")
+    comparison_lines.append("")
+    
+    # Create comparison table
+    header = "│ # │ Filename                    │ Version │"
+    separator = "├───┼─────────────────────────────┼─────────┤"
+    
+    comparison_lines.append("┌───┬─────────────────────────────┬─────────┐")
+    comparison_lines.append(header)
+    comparison_lines.append(separator)
+    
+    for result in results_data:
+        filename_display = result["filename"][:27] + "..." if len(result["filename"]) > 27 else result["filename"]
+        row = f"│ {result['index']} │ {filename_display:27} │ v{result['version']:5} │"
+        comparison_lines.append(row)
+    
+    comparison_lines.append("└───┴─────────────────────────────┴─────────┘")
+    comparison_lines.append("")
+    
+    # Show detailed information if requested
+    if inputs.show_details:
+        comparison_lines.append("📋 Detailed Information:")
+        comparison_lines.append("")
+        
+        for result in results_data:
+            comparison_lines.append(f"🔹 Result #{result['index']}: {result['filename']}")
+            comparison_lines.append(f"   • Asset name: {result['asset_name']}")
+            comparison_lines.append(f"   • Version: v{result['version']}")
+            
+            # Get content review if available (from deep think mode)
+            content_review = tool_context.state.get("content_review")
+            if content_review and result['index'] == len(results_data):  # Only for latest
+                comparison_lines.append(f"   • Quality Review: Available")
+                if hasattr(content_review, 'garment_fit'):
+                    comparison_lines.append(f"     - Garment fit: {'✅' if content_review.garment_fit else '⚠️'}")
+                if hasattr(content_review, 'realistic_lighting'):
+                    comparison_lines.append(f"     - Lighting: {'✅' if content_review.realistic_lighting else '⚠️'}")
+                if hasattr(content_review, 'visual_appeal'):
+                    comparison_lines.append(f"     - Visual appeal: {'✅' if content_review.visual_appeal else '⚠️'}")
+            
+            comparison_lines.append("")
+    
+    # Add recommendations
+    comparison_lines.append("💡 Recommendations:")
+    comparison_lines.append("")
+    comparison_lines.append("   • View all images in the artifacts panel to compare visually")
+    comparison_lines.append("   • Use load_artifacts_tool to load and view specific versions")
+    comparison_lines.append(f"   • Latest version is usually: {results_data[-1]['filename']}")
+    
+    # Add selection helper
+    comparison_lines.append("")
+    comparison_lines.append("📌 To select your preferred result:")
+    comparison_lines.append("   1. View the images in the artifacts panel")
+    comparison_lines.append("   2. Note which version looks best")
+    comparison_lines.append("   3. That image is already saved and ready to use!")
+    
+    return "\n".join(comparison_lines)
+
+
+def get_comparison_summary(tool_context: ToolContext) -> str:
+    """Get a quick summary of all try-on results for easy comparison."""
+    asset_versions = tool_context.state.get("asset_versions", {})
+    
+    if not asset_versions:
+        return "No try-on results available. Create some results first using virtual_tryon."
+    
+    summary_lines = ["📊 Quick Comparison Summary"]
+    summary_lines.append("=" * 60)
+    summary_lines.append("")
+    
+    total_results = 0
+    for asset_name, current_version in asset_versions.items():
+        history_key = f"{asset_name}_history"
+        history = tool_context.state.get(history_key, [])
+        total_versions = len(history)
+        total_results += total_versions
+        
+        summary_lines.append(f"🎨 {asset_name}:")
+        summary_lines.append(f"   • Total versions: {total_versions}")
+        summary_lines.append(f"   • Latest: v{current_version}")
+        
+        # List all versions
+        if total_versions > 0:
+            summary_lines.append(f"   • Available versions:")
+            for item in history:
+                summary_lines.append(f"     - {item['filename']}")
+        
+        summary_lines.append("")
+    
+    summary_lines.append(f"Total results created: {total_results}")
+    summary_lines.append("")
+    summary_lines.append("💡 To compare specific versions, use compare_tryon_results with the filenames above.")
+    
+    return "\n".join(summary_lines)

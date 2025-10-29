@@ -74,34 +74,39 @@ class LoopTerminationAgent(BaseAgent):
         should_continue = True
         reason = "No decision found"
         
-        # CRITICAL: Stop immediately after first successful generation
-        # User wants to return to root agent after gen completes
-        if iteration_count >= 1 and last_generated:
-            should_continue = False
-            reason = "Virtual try-on generated successfully. Returning to main agent for user review."
-        elif isinstance(loop_decision, LoopDecision):
+        # Check loop control decision for whether to continue refining
+        if isinstance(loop_decision, LoopDecision):
             should_continue = loop_decision.should_continue
             reason = loop_decision.reason
         elif isinstance(loop_decision, dict):
             should_continue = loop_decision.get("should_continue", True)
             reason = loop_decision.get("reason", "No reason provided")
+        else:
+            # Default: continue if we have generated content but haven't reviewed enough
+            should_continue = True
+            reason = "Continuing iteration for quality improvement"
         
         # Force stop if we've reached max iterations
-        if iteration_count >= 4:
+        if iteration_count >= 3:
             should_continue = False
-            reason = "Maximum iterations reached"
+            reason = "Maximum iterations reached (3 rounds)"
+        
+        # If this is first iteration and no generation yet, continue
+        if iteration_count == 1 and not last_generated:
+            should_continue = True
+            reason = "Initial generation needed"
         
         if should_continue:
             yield Event(
                 author=self.name,
-                content=Content(parts=[Part(text=f"Continuing deep think refinement: {reason}")]),
+                content=Content(parts=[Part(text=f"🔄 Deep think iteration {iteration_count} complete. {reason}\n\nContinuing refinement...")]),
             )
         else:
             # End the loop and clean up deep think state
             final_image = ctx.session.state.get("last_generated_image")
             yield Event(
                 author=self.name,
-                content=Content(parts=[Part(text=f"✅ Virtual try-on complete! Result: {final_image}\n\nReturning to main menu. You can now:\n• View the result\n• Request modifications\n• Generate another try-on")]),
+                content=Content(parts=[Part(text=f"✅ Deep think complete after {iteration_count} iteration(s)!\n\n{reason}\n\nFinal result: {final_image}\n\nReturning to main menu.")]),
                 actions=EventActions(
                     state_delta={
                         "deep_think_mode": False,
@@ -159,17 +164,19 @@ class DeepThinkPreparationAgent(BaseAgent):
         )
 
 # Create the deep think loop structure
-# SIMPLIFIED: Only generate once, no review/refinement loop
-# User can manually request improvements if needed
+# Now includes review and loop control for iterative refinement
+# Up to 3 iterations for quality improvement
 deep_think_loop = LoopAgent(
     name="DeepThinkLoop",
     sub_agents=[
         DeepThinkPreparationAgent(name="DeepThinkPreparationAgent"),
         prompt_capture_agent,
         content_generation_agent,
+        content_review_agent,  # Reviews the generated try-on
+        loop_control_agent,    # Decides whether to continue refining
         LoopTerminationAgent(name="LoopTerminationAgent"),
     ],
-    max_iterations=1,  # Only run once
+    max_iterations=3,  # Up to 3 iterations for quality improvement
 )
 
 # Create an agent tool wrapper for the deep think loop (used if we don't want the user to see the outputs of the deep think loop)
