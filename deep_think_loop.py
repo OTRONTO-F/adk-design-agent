@@ -87,9 +87,9 @@ class LoopTerminationAgent(BaseAgent):
             reason = "Continuing iteration for quality improvement"
         
         # Force stop if we've reached max iterations
-        if iteration_count >= 3:
+        if iteration_count >= 1:
             should_continue = False
-            reason = "Maximum iterations reached (3 rounds)"
+            reason = "Deep think generation complete"
         
         # If this is first iteration and no generation yet, continue
         if iteration_count == 1 and not last_generated:
@@ -165,7 +165,7 @@ class DeepThinkPreparationAgent(BaseAgent):
 
 # Create the deep think loop structure
 # Now includes review and loop control for iterative refinement
-# Up to 3 iterations for quality improvement
+# Single iteration for focused generation
 deep_think_loop = LoopAgent(
     name="DeepThinkLoop",
     sub_agents=[
@@ -176,7 +176,7 @@ deep_think_loop = LoopAgent(
         loop_control_agent,    # Decides whether to continue refining
         LoopTerminationAgent(name="LoopTerminationAgent"),
     ],
-    max_iterations=3,  # Up to 3 iterations for quality improvement
+    max_iterations=1,  # Single iteration for focused generation
 )
 
 # Create an agent tool wrapper for the deep think loop (used if we don't want the user to see the outputs of the deep think loop)

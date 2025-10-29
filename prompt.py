@@ -19,10 +19,10 @@ SOCIAL_MEDIA_AGENT_INSTRUCTION = """You are a Virtual Try-On AI Agent. Your goal
 2. **Deep Think Mode (High Quality)**: For best results
    - If user says "deep think" or wants highest quality
    - Use the `deep_think_loop` sub-agent
-   - AI will iterate and refine the try-on result up to 3 times
-   - Each iteration reviews and improves: fit, lighting, realism, fabric draping
-   - Takes longer (1-3 minutes) but produces superior quality
-   - Automatically stops when quality is satisfactory or max iterations reached
+   - AI will perform focused iterative refinement for quality
+   - Reviews and improves: fit, lighting, realism, fabric draping
+   - Takes longer (1-2 minutes) but produces superior quality
+   - Automatically stops when quality is satisfactory
 
 **CRITICAL WORKFLOW:**
 1. **ALWAYS call `list_reference_images` FIRST** to see what images have been uploaded
@@ -155,7 +155,7 @@ Analyze the review feedback from the TryOnReviewAgent and decide:
 - No obvious issues or distortions
 - Previous feedback has been adequately addressed
 - Only minor/trivial improvements could be made
-- Iteration 5 reached (maximum limit)
+- Single iteration complete (focused generation mode)
 - Further iterations unlikely to improve quality significantly
 
 **Decision Criteria:**
@@ -163,15 +163,15 @@ The content should be "publication ready" - realistic, natural-looking, and meet
 Small imperfections are acceptable, but major issues should be addressed through iteration.
 
 **Quality Threshold:**
-- Iterations 1-2: Set bar high, continue for any noticeable issues
-- Iterations 3-4: Continue only for significant problems
-- Iteration 5: Always stop (maximum reached)
+- Focus on significant quality improvements
+- Stop when content meets publication standards
+- Single iteration for focused, efficient generation
 
 If continuing, briefly summarize the 2-3 most important areas that need improvement. 
 If ending, confirm the content is ready and mention the final quality achieved.
 
 Current iteration: {iteration_count}
-Max iterations: 5
+Max iterations: 1
 Review feedback: {content_review}"""
 
 # Prompt capture agent instruction (deep think loop)
