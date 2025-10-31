@@ -5,6 +5,7 @@ An intelligent multi-agent AI system built with Google ADK for virtual clothing 
 ## 🎯 Features
 
 ### Core Features
+
 - ✅ **Virtual Try-On**: Select catalog garments and see realistic try-on results
 - ✅ **Catalog System**: Browse 10 curated fashion garments (no uploads needed)
 - ✅ **Auto-Start Mode**: New image upload automatically begins workflow
@@ -15,7 +16,8 @@ An intelligent multi-agent AI system built with Google ADK for virtual clothing 
 - ✅ **9:16 Aspect Ratio**: Optimized for portrait/mobile viewing
 - ✅ **Session Management**: Track all uploads and try-on results
 
-### v3.1.0 - Interactive Multi-Agent Architecture ⭐ CURRENT!
+### v3.1.0 - Interactive Multi-Agent Architecture ⭐ CURRENT
+
 - 🎯 **Interactive Coordinator**: User-driven workflow with LLM intelligence
 - 🖼️ **Image Manager Agent**: Handles person image uploads with auto-start (3 tools)
 - 👔 **Catalog Manager Agent**: Shows catalog and manages selection (2 tools)
@@ -28,7 +30,7 @@ An intelligent multi-agent AI system built with Google ADK for virtual clothing 
 
 ### Interactive Multi-Agent System (v3.1.0)
 
-```
+```text
 COORDINATOR AGENT (LlmAgent - Interactive)
     │
     ├─→ Image Manager Agent (3 tools) - AUTO-START
@@ -49,6 +51,7 @@ COORDINATOR AGENT (LlmAgent - Interactive)
 ```
 
 **Why Interactive?**
+
 - ✅ User controls pace at each phase
 - ✅ Auto-start on new image upload
 - ✅ Natural conversation flow
@@ -86,6 +89,7 @@ COORDINATOR AGENT (LlmAgent - Interactive)
    - Finish
 
 ### Continuous Workflow
+
 - Upload multiple person images (v1, v2, v3...)
 - Each upload auto-starts new workflow
 - All results preserved for comparison
@@ -174,7 +178,7 @@ Then navigate to: `http://127.0.0.1:8000/dev-ui?app=agent`
 
 ### Step 1: Upload Person Image (AUTO-START)
 
-```
+```text
 User: "Hi, I want to try on some clothes"
 Agent: "Hello! Welcome to our Virtual Try-On service! 👔✨
         
@@ -188,7 +192,7 @@ Agent: "✅ Person image validated and saved!
 
 ### Step 2: Browse Catalog (Catalog Manager)
 
-```
+```text
 User: "Show me the catalog"
 Agent: "Here are our available garments:
 
@@ -205,7 +209,7 @@ Agent: "Here are our available garments:
 
 ### Step 3: Virtual Try-On (Try-On Specialist)
 
-```
+```text
 User: "I want to try garment #2"
 Agent: "✅ Navy Business Suit selected!
         
@@ -224,7 +228,7 @@ Agent: "✨ Virtual Try-On Complete!
 
 ### Step 4: Compare Results (Try-On Specialist)
 
-```
+```text
 User: "Compare my try-on results"
 Agent: [Shows all try-on versions]
        "Here are all your try-ons:
@@ -244,9 +248,11 @@ Agent: [Calls get_comparison_summary]
         • Great color coordination
         • Most versatile style"
 ```
+
 ## 🛠️ Available Tools
 
 ### Image Manager Agent (3 tools)
+
 1. **list_reference_images** - List all uploaded person images
 2. **clear_reference_images** - Clear all uploaded images
 3. **load_artifacts_tool** - Load previous artifacts
@@ -266,7 +272,7 @@ Agent: [Calls get_comparison_summary]
 
 ## 📁 File Structure
 
-```
+```text
 adk-design-agent/
 ├── agent.py                     # ⭐ Interactive Multi-Agent System (v3.1.0)
 ├── prompts.py                   # All agent instructions
@@ -507,6 +513,7 @@ For issues and questions:
 ## 🎯 Version History
 
 ### v3.1.0 (Latest) - Interactive Multi-Agent with AUTO-START
+
 - ✅ **AUTO-START MODE**: New image upload triggers automatic workflow
 - ✅ Interactive coordinator with 3 specialist agents
 - ✅ User-controlled workflow pacing (except auto-start)
@@ -517,51 +524,61 @@ For issues and questions:
 - ✅ Enhanced documentation
 
 ### v3.0.0 - LoopAgent Architecture
+
 - ✅ Automatic workflow with LoopAgent
 - ✅ Sequential chaining with output_key
 - ✅ Fully automated pipeline
 
 ### v2.0.0 - SequentialAgent Implementation
+
 - ✅ SequentialAgent with automatic chaining
 - ✅ Output key-based data flow
 - ✅ Improved tool organization
 
 ### v1.7.0 - Sequential Multi-Agent Architecture
+
 - ✅ Added Sequential Multi-Agent system (4 agents)
 - ✅ Better tool organization (3+2+5 distribution)
 - ✅ Comprehensive documentation
 
 ### v1.6.0 - Regular Mode Only
+
 - ✅ Removed Deep Think mode
 - ✅ Simplified to regular agent only
 - ✅ Code cleanup (removed unused imports)
 
 ### v1.5.0 - Catalog System
+
 - ✅ Added catalog with 7 garments
 - ✅ Catalog-only mode (no garment uploads)
 - ✅ English-only output
 
 ### v1.4.0 - Comparison Features
+
 - ✅ Compare multiple try-on results
 - ✅ AI-powered comparison summary
 - ✅ Side-by-side result viewing
 
 ### v1.3.0 - Rate Limiting
+
 - ✅ 5-second cooldown between try-ons
 - ✅ Rate limit status tool
 - ✅ Prevents excessive API calls
 
 ### v1.2.0 - Image Validation
+
 - ✅ Person image validation
 - ✅ Clear reference images tool
 - ✅ List reference images tool
 
 ### v1.1.0 - Core Features
+
 - ✅ Virtual try-on tool
 - ✅ List try-on results
 - ✅ Load previous artifacts
 
 ### v1.0.0 - Initial Release
+
 - ✅ Basic virtual try-on agent
 - ✅ Single agent architecture
 - ✅ Image upload handling
