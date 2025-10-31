@@ -243,7 +243,8 @@ Agent: [Calls get_comparison_summary]
         • Natural fit
         • Great color coordination
         • Most versatile style"
-```## 🛠️ Available Tools
+```
+## 🛠️ Available Tools
 
 ### Image Manager Agent (3 tools)
 1. **list_reference_images** - List all uploaded person images
@@ -265,6 +266,7 @@ Agent: [Calls get_comparison_summary]
 
 ## 📁 File Structure
 
+```
 adk-design-agent/
 ├── agent.py                     # ⭐ Interactive Multi-Agent System (v3.1.0)
 ├── prompts.py                   # All agent instructions
