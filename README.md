@@ -1,34 +1,37 @@
 # Virtual Try-On AI Agent
 
-An intelligent AI agent built with Google ADK for virtual clothing try-on. Upload a person image, select from our catalog, and let AI show you how the outfit would look!
+An intelligent multi-agent AI system built with Google ADK for virtual clothing try-on. Upload a person image, select from our catalog, and let AI show you how the outfit would look!
 
 ## 🎯 Features
 
 ### Core Features
 - ✅ **Virtual Try-On**: Select catalog garments and see realistic try-on results
-- ✅ **Catalog System**: Browse 7 curated fashion garments (no uploads needed)
+- ✅ **Catalog System**: Browse 10 curated fashion garments (no uploads needed)
+- ✅ **Auto-Start Mode**: New image upload automatically begins workflow
+- ✅ **Continuous Workflow**: Unlimited try-ons with automatic versioning
 - ✅ **Rate Limiting**: Smart cooldown (5s) prevents excessive API calls
 - ✅ **Result Comparison**: Compare multiple try-on versions side-by-side
 - ✅ **Image Validation**: Automatic person image validation
 - ✅ **9:16 Aspect Ratio**: Optimized for portrait/mobile viewing
 - ✅ **Session Management**: Track all uploads and try-on results
 
-### v1.7.0 - Sequential Multi-Agent Architecture ⭐ NEW!
-- 🎯 **Coordinator Agent**: Orchestrates the entire workflow
-- 🖼️ **Image Manager Agent**: Handles person image uploads (3 tools)
+### v3.1.0 - Interactive Multi-Agent Architecture ⭐ CURRENT!
+- 🎯 **Interactive Coordinator**: User-driven workflow with LLM intelligence
+- 🖼️ **Image Manager Agent**: Handles person image uploads with auto-start (3 tools)
 - 👔 **Catalog Manager Agent**: Shows catalog and manages selection (2 tools)
 - ✨ **Try-On Specialist Agent**: Executes virtual try-on operations (5 tools)
-- 📊 **Better Organization**: 10 tools distributed across 4 specialized agents
-- 🔧 **Easy Maintenance**: Clear separation of responsibilities
+- 📊 **Clean Organization**: 10 tools distributed across 3 specialized sub-agents
+- � **Fast Workflow**: Auto-start mode for continuous try-ons
+- 💬 **User Control**: Interactive with natural conversation flow
 
 ## 🏗️ Architecture
 
-### Sequential Multi-Agent System (Recommended)
+### Interactive Multi-Agent System (v3.1.0)
 
 ```
-COORDINATOR AGENT (Orchestrator)
+COORDINATOR AGENT (LlmAgent - Interactive)
     │
-    ├─→ Image Manager Agent (3 tools)
+    ├─→ Image Manager Agent (3 tools) - AUTO-START
     │   ├─ list_reference_images
     │   ├─ clear_reference_images
     │   └─ load_artifacts_tool
@@ -45,13 +48,48 @@ COORDINATOR AGENT (Orchestrator)
         └─ get_rate_limit_status
 ```
 
-**Why Sequential?**
-- ✅ Clear workflow: Upload → Select → Try-On
-- ✅ Easy to maintain and extend
-- ✅ Better debugging and testing
-- ✅ Professional architecture
+**Why Interactive?**
+- ✅ User controls pace at each phase
+- ✅ Auto-start on new image upload
+- ✅ Natural conversation flow
+- ✅ Flexible and maintainable
+- ✅ Support for continuous operations
 
-**Legacy Single Agent** still available in `agent.py` for backwards compatibility.
+## 🔄 Workflow
+
+### Auto-Start Workflow (v3.1.0)
+
+1. **Upload Person Image** → AUTO-START
+   - Image saved automatically (reference_image_v1.png)
+   - System immediately shows catalog
+   
+2. **View Catalog** → AUTOMATIC
+   - 10 garments displayed
+   - User selects by number
+   
+3. **Select Garment** → INTERACTIVE
+   - User chooses garment
+   - Confirmation displayed
+   
+4. **Execute Try-On** → AUTOMATIC
+   - Virtual try-on processed
+   - Result saved (tryon_result_v1.png)
+   
+5. **View Result** → WAIT
+   - User reviews result
+   - Can compare with previous versions
+   
+6. **Continue?** → INTERACTIVE
+   - Upload new person (→ auto-start)
+   - Try different garment (same person)
+   - Compare results
+   - Finish
+
+### Continuous Workflow
+- Upload multiple person images (v1, v2, v3...)
+- Each upload auto-starts new workflow
+- All results preserved for comparison
+- No manual cleanup needed
 
 ## Prerequisites
 
@@ -89,10 +127,15 @@ COORDINATOR AGENT (Orchestrator)
 
 ### Quick Start ⭐ Recommended
 
-Start the Sequential Multi-Agent system:
+Start the Interactive Multi-Agent system:
 
 ```bash
 adk run agent:runner
+```
+
+Expected output:
+```
+🎯 Virtual Try-On Agent System (v3.1.0) - Ready!
 ```
 
 Or use the quick start script:
@@ -118,30 +161,18 @@ adk web
 
 Then navigate to: `http://127.0.0.1:8000/dev-ui?app=agent`
 
-Or use the web UI script:
-
-**Windows:**
-```bash
-run_web.bat
-```
-
-**Linux/Mac:**
-```bash
-chmod +x run_web.sh
-./run_web.sh
-```
-
-### Compare Architectures
-
-Analyze the architecture:
-
-```bash
-python compare_architecture.py all
-```
-
 ## 📖 Usage Guide
 
-### Step 1: Upload Person Image (Image Manager)
+### Basic Workflow
+
+1. **Start Agent**: Run `adk run agent:runner`
+2. **Upload Image**: Attach person photo (9:16 ratio preferred)
+3. **Auto-Start**: System automatically shows catalog
+4. **Select Garment**: Choose by number (1-10)
+5. **View Result**: See virtual try-on result
+6. **Continue**: Upload new person or try different garment
+
+### Step 1: Upload Person Image (AUTO-START)
 
 ```
 User: "Hi, I want to try on some clothes"
@@ -220,10 +251,12 @@ Agent: [Calls get_comparison_summary]
 3. **load_artifacts_tool** - Load previous artifacts
 
 ### Catalog Manager Agent (2 tools)
-1. **list_catalog_clothes** - Display all 7 catalog garments
-2. **select_catalog_cloth** - Select garment by ID (1-7)
+
+1. **list_catalog_clothes** - Display all 10 catalog garments
+2. **select_catalog_cloth** - Select garment by ID (1-10)
 
 ### Try-On Specialist Agent (5 tools)
+
 1. **virtual_tryon** - Execute virtual try-on with selected garment
 2. **list_tryon_results** - Show all try-on results
 3. **compare_tryon_results** - Compare multiple versions
@@ -234,19 +267,19 @@ Agent: [Calls get_comparison_summary]
 
 ```
 adk-design-agent/
-├── sequential_agent.py          # ⭐ Sequential Multi-Agent (Recommended)
-├── sequential_prompts.py        # Agent instructions
-├── agent.py                     # Legacy single agent
-├── prompt.py                    # Legacy instructions
+├── agent.py                     # ⭐ Interactive Multi-Agent System (v3.1.0)
+├── prompts.py                   # All agent instructions
+├── prompt.py.old                # Legacy single agent (backup)
 ├── tools/
 │   ├── tryon_tool.py           # Virtual try-on tools (10 tools)
-│   └── post_creator_tool.py    # Legacy tool
-├── compare_architecture.py      # Architecture comparison tool
-├── ARCHITECTURE.md             # Architecture documentation
-├── AGENT_CONFIG.md             # Configuration guide
-├── SEQUENTIAL_SUMMARY.md       # Implementation summary
+│   └── rate_limiter.py         # Rate limiting utilities
+├── catalog/                     # 10 fashion garments
+├── reference_images/            # Uploaded person images (auto-versioned)
+├── tryon_results/               # Generated results (auto-versioned)
+├── deep_think_loop.py          # Deep thinking utilities
 ├── requirements.txt            # Python dependencies
 ├── pyproject.toml              # Project configuration
+├── run.bat / run.sh            # Quick start scripts
 └── README.md                   # This file
 ```
 
@@ -263,15 +296,18 @@ GOOGLE_API_KEY=your_gemini_api_key_here
 
 # Optional
 GOOGLE_GENAI_USE_VERTEXAI=false
+RATE_LIMIT_COOLDOWN=5.0         # Cooldown seconds (default: 5.0)
 ```
 
 ### Rate Limiting Configuration
 
-Edit `tools/tryon_tool.py`:
+Environment variable in `.env`:
 
-```python
-RATE_LIMIT_SECONDS = 5  # Cooldown between try-ons (default: 5s)
+```bash
+RATE_LIMIT_COOLDOWN=5.0  # Cooldown between try-ons (default: 5s)
 ```
+
+Or edit `tools/rate_limiter.py` for custom logic.
 
 ### Catalog Configuration
 
@@ -280,9 +316,11 @@ Add/modify garments in `tools/tryon_tool.py`:
 ```python
 CATALOG_CLOTHES = [
     {"id": 1, "name": "Your Garment", "description": "Description"},
-    # ... add more
+    # ... add up to 10 garments
 ]
 ```
+
+Place garment images in `catalog/` folder.
 
 ## 🐛 Troubleshooting
 
@@ -291,27 +329,27 @@ CATALOG_CLOTHES = [
 1. **"GEMINI_API_KEY environment variable not set"**
    - Ensure your `.env` file contains the API key
    - Verify the key has image generation permissions
-   - Check the key is loaded: `echo $GEMINI_API_KEY` (Linux/Mac) or `echo %GEMINI_API_KEY%` (Windows)
+   - Check the key is loaded: `echo $GEMINI_API_KEY` (Linux/Mac) or `echo $env:GEMINI_API_KEY` (PowerShell)
 
 2. **"Rate limit exceeded"**
-   - Wait 5 seconds between try-ons
-   - Check status: `"What's the rate limit status?"`
+   - Wait 5 seconds between try-ons (default cooldown)
+   - Check status: "What's the rate limit status?"
    - The cooldown resets automatically
 
 3. **"Invalid garment selection"**
-   - Use garment ID from 1-7 only
-   - Run `"Show me the catalog"` to see available garments
+   - Use garment ID from 1-10 only
+   - Run "Show me the catalog" to see available garments
    - Cannot upload custom garments (catalog-only mode)
 
 4. **"Person image validation failed"**
-   - Ensure image is 9:16 aspect ratio
+   - Ensure image is 9:16 aspect ratio (portrait)
    - Upload clear portrait photos
    - File must be JPG or PNG format
 
-5. **"Cannot import sequential_agent"**
+5. **"Cannot import module"**
    - Check you're in the project directory
-   - Verify all files exist: `sequential_agent.py`, `sequential_prompts.py`, `tools/`
-   - Run: `python -c "from sequential_agent import runner; print('OK')"`
+   - Verify all files exist: `agent.py`, `prompts.py`, `tools/`
+   - Run: `python -c "from agent import root_agent; print('OK')"`
 
 ### Debug Mode
 
@@ -319,75 +357,90 @@ Enable detailed logging:
 
 ```bash
 # Windows PowerShell
-$env:PYTHONPATH="."; python -c "import logging; logging.basicConfig(level='DEBUG'); from sequential_agent import runner"
+$env:PYTHONPATH="."; python -c "import logging; logging.basicConfig(level='DEBUG'); from agent import root_agent"
 
 # Linux/Mac
-export PYTHONPATH=.; python -c "import logging; logging.basicConfig(level=logging.DEBUG); from sequential_agent import runner"
+export PYTHONPATH=.; python -c "import logging; logging.basicConfig(level=logging.DEBUG); from agent import root_agent"
 ```
 
-### Testing Tools
+Or in your Python code:
 
-```bash
-# Test Sequential Agent
-python compare_architecture.py sequential
+```python
+import logging
 
-# Test Single Agent  
-python compare_architecture.py single
-
-# Compare Both
-python compare_architecture.py all
+logging.basicConfig(level=logging.DEBUG)
 ```
 
 ## 📚 Documentation
 
-- **[ARCHITECTURE.md](ARCHITECTURE.md)** - Detailed architecture comparison (Single vs Sequential)
-- **[AGENT_CONFIG.md](AGENT_CONFIG.md)** - Configuration and deployment guide
-- **[SEQUENTIAL_SUMMARY.md](SEQUENTIAL_SUMMARY.md)** - Implementation summary and benefits
+logging.basicConfig(level=logging.DEBUG)
+```
+
+## 📚 Documentation
+
 - **[Google ADK Docs](https://google.github.io/adk-docs/)** - Official ADK documentation
+- **[Gemini API](https://ai.google.dev/gemini-api/docs)** - Gemini model documentation
+- **[Image Generation](https://ai.google.dev/gemini-api/docs/imagen)** - Imagen 3 documentation
 
 ## 🚀 Advanced Usage
 
 ### Adding New Agents
 
-To extend the Sequential system:
+To extend the Interactive system:
 
 ```python
-# In sequential_agent.py
+# In agent.py
 
-# 1. Create new agent
-style_advisor = LlmAgent(
-    name="style_advisor_agent",
-    model="gemini-2.0-flash-exp",
-    instruction=STYLE_ADVISOR_INSTRUCTION,
-    tools=[recommend_style, analyze_preferences]
+# 1. Import new instruction from prompts.py
+from prompts import (
+    IMAGE_MANAGER_INSTRUCTION,
+    CATALOG_MANAGER_INSTRUCTION,
+    TRYON_SPECIALIST_INSTRUCTION,
+    INTERACTIVE_COORDINATOR_INSTRUCTION,
+    STYLE_ADVISOR_INSTRUCTION  # Add new instruction
 )
 
-# 2. Add to coordinator's sub_agents
+# 2. Create new agent
+style_advisor_agent = LlmAgent(
+    name="style_advisor_agent",
+    model="gemini-2.5-flash",
+    instruction=STYLE_ADVISOR_INSTRUCTION,
+    tools=[recommend_style, analyze_preferences],
+    before_model_callback=process_reference_images_callback
+)
+
+# 3. Add to coordinator's sub_agents
 root_agent = LlmAgent(
-    name="coordinator_agent",
+    name="virtual_tryon_coordinator",
     sub_agents=[
         image_manager_agent,
         catalog_manager_agent,
         tryon_specialist_agent,
-        style_advisor  # Add here
+        style_advisor_agent  # Add here
     ]
 )
 ```
 
 ### Custom Workflows
 
-Modify agent instructions in `sequential_prompts.py`:
+Modify agent instructions in `prompts.py`:
 
 ```python
 CUSTOM_WORKFLOW_INSTRUCTION = """
-You are the Custom Workflow Agent.
+You are the Custom Workflow Agent for the Virtual Try-On system.
 
-Your workflow:
+Your responsibilities:
 1. Step 1: [Your custom step]
 2. Step 2: [Your custom step]
 3. Step 3: [Your custom step]
 
-Available tools: [list your tools]
+Available tools:
+- [list your tools]
+
+Important:
+- Always validate inputs
+- Provide clear feedback
+- Handle errors gracefully
 """
 ```
 
@@ -396,10 +449,19 @@ Available tools: [list your tools]
 ```python
 # Adjust model for speed/quality
 LlmAgent(
-    model="gemini-2.0-flash-exp",  # Fast, good quality
-    # model="gemini-1.5-pro",      # Slower, best quality
-    # model="gemini-1.5-flash",    # Fastest, good quality
+    model="gemini-2.5-flash",       # ⭐ Best balance (recommended)
+    # model="gemini-2.0-flash-exp", # Fast, experimental features
+    # model="gemini-2.5-pro",       # Slower, highest quality
 )
+```
+
+### Custom Rate Limiting
+
+Edit `tools/rate_limiter.py` or set environment variable:
+
+```bash
+# In .env
+RATE_LIMIT_COOLDOWN=10.0  # 10 seconds cooldown
 ```
 
 ## 🤝 Contributing
@@ -412,8 +474,8 @@ Contributions are welcome! Here's how:
 4. **Test thoroughly**:
    ```bash
    # Test your changes
-   python compare_architecture.py all
-   adk run sequential_agent:runner
+   adk run agent:runner
+   # Upload test image and verify workflow
    ```
 5. **Commit**: `git commit -m "Add amazing feature"`
 6. **Push**: `git push origin feature/amazing-feature`
@@ -421,11 +483,12 @@ Contributions are welcome! Here's how:
 
 ### Development Guidelines
 
-- Follow existing code style
+- Follow existing code style and structure
 - Add docstrings to new functions
-- Update documentation
-- Test both architectures if changing tools
-- Keep backward compatibility with single agent
+- Update `prompts.py` for instruction changes
+- Test interactive workflow thoroughly
+- Update README.md for new features
+- Maintain backward compatibility
 
 ## 📄 License
 
@@ -442,11 +505,30 @@ For issues and questions:
 
 ## 🎯 Version History
 
-### v1.7.0 (Latest) - Sequential Multi-Agent Architecture
+### v3.1.0 (Latest) - Interactive Multi-Agent with AUTO-START
+- ✅ **AUTO-START MODE**: New image upload triggers automatic workflow
+- ✅ Interactive coordinator with 3 specialist agents
+- ✅ User-controlled workflow pacing (except auto-start)
+- ✅ Continuous workflow support
+- ✅ 10 garments in catalog (expanded from 7)
+- ✅ Consolidated prompts in single file (`prompts.py`)
+- ✅ Clean logging output
+- ✅ Enhanced documentation
+
+### v3.0.0 - LoopAgent Architecture
+- ✅ Automatic workflow with LoopAgent
+- ✅ Sequential chaining with output_key
+- ✅ Fully automated pipeline
+
+### v2.0.0 - SequentialAgent Implementation
+- ✅ SequentialAgent with automatic chaining
+- ✅ Output key-based data flow
+- ✅ Improved tool organization
+
+### v1.7.0 - Sequential Multi-Agent Architecture
 - ✅ Added Sequential Multi-Agent system (4 agents)
 - ✅ Better tool organization (3+2+5 distribution)
-- ✅ Comprehensive documentation (ARCHITECTURE.md, AGENT_CONFIG.md)
-- ✅ Architecture comparison tool
+- ✅ Comprehensive documentation
 
 ### v1.6.0 - Regular Mode Only
 - ✅ Removed Deep Think mode
@@ -480,6 +562,7 @@ For issues and questions:
 
 ### v1.0.0 - Initial Release
 - ✅ Basic virtual try-on agent
+- ✅ Single agent architecture
 - ✅ Image upload handling
 - ✅ Result management
 

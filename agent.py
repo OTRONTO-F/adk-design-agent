@@ -215,7 +215,7 @@ tryon_specialist_agent = LlmAgent(
 # ========================================
 
 # Main Coordinator Agent with sub-agents (user-driven interactive workflow)
-# Uses instruction from sequential_prompts.py for clean separation of concerns
+# Uses instruction from prompts.py for clean separation of concerns
 root_agent = LlmAgent(
     name="virtual_tryon_coordinator",
     model="gemini-2.5-flash",
