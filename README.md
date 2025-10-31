@@ -265,7 +265,6 @@ Agent: [Calls get_comparison_summary]
 
 ## 📁 File Structure
 
-```
 adk-design-agent/
 ├── agent.py                     # ⭐ Interactive Multi-Agent System (v3.1.0)
 ├── prompts.py                   # All agent instructions
