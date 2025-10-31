@@ -77,15 +77,45 @@ def validate_image_aspect_ratio(image_data: bytes, expected_ratio: tuple = (9, 1
         return True, "⚠️ Could not validate aspect ratio, proceeding anyway"
 
 async def load_image(tool_context: ToolContext, filename: str):
-    """Load an uploaded image artifact by filename."""
+    """Load an uploaded image artifact by filename or from catalog."""
     try:
+        # First, try to load from artifacts (uploaded images)
         loaded_part = await tool_context.load_artifact(filename)
         if loaded_part:
-            logger.info(f"Successfully loaded image: {filename}")
+            logger.info(f"Successfully loaded image from artifacts: {filename}")
             return loaded_part
+        
+        # If not found in artifacts, check if it's a catalog reference
+        # Handle both "catalog/1.jpg" and "1.jpg" formats
+        from pathlib import Path
+        
+        # Check if filename starts with "catalog/"
+        if filename.startswith("catalog/"):
+            catalog_path = Path(__file__).parent.parent / filename
         else:
-            logger.warning(f"Image not found: {filename}")
-            return None
+            # Try to find it in catalog directory
+            catalog_path = Path(__file__).parent.parent / "catalog" / filename
+        
+        # If catalog file exists, read it and create Part
+        if catalog_path.exists():
+            logger.info(f"Loading image from catalog: {catalog_path}")
+            with open(catalog_path, 'rb') as f:
+                image_data = f.read()
+            
+            # Determine mime type
+            import mimetypes
+            mime_type, _ = mimetypes.guess_type(str(catalog_path))
+            if not mime_type:
+                mime_type = "image/jpeg"  # default
+            
+            from google.genai.types import Part
+            part = Part.from_bytes(data=image_data, mime_type=mime_type)
+            logger.info(f"Successfully loaded image from catalog: {filename}")
+            return part
+        
+        logger.warning(f"Image not found in artifacts or catalog: {filename}")
+        return None
+        
     except Exception as e:
         logger.error(f"Error loading image {filename}: {e}")
         return None
@@ -193,9 +223,10 @@ def get_rate_limit_status(tool_context: ToolContext) -> str:
 
 class VirtualTryOnInput(BaseModel):
     person_image_filename: str = Field(..., description="Filename of the person image that was uploaded (e.g., 'reference_image_v1.png')")
-    garment_image_filename: str = Field(..., description="Filename of the garment/clothing image that was uploaded (e.g., 'reference_image_v2.png')")
+    garment_image_filename: str = Field(..., description="Filename of the garment/clothing image that was uploaded (e.g., 'reference_image_v2.png') or from catalog (e.g., 'catalog/1.jpg')")
     result_name: str = Field(default="tryon_result", description="Name for the try-on result (will be versioned automatically)")
-    additional_instructions: str = Field(default="", description="Optional: Additional instructions for the try-on (e.g., 'keep original background', 'adjust lighting')")
+    additional_instructions: str = Field(default="", description="Optional: Additional instructions for the try-on (e.g., 'keep original background', 'adjust lighting', 'show bare arms for short sleeves')")
+    garment_type: str = Field(default="auto", description="Type of garment: 'short-sleeve', 'long-sleeve', 'sleeveless', 'dress', 'jacket', or 'auto' to detect automatically")
 
 
 async def virtual_tryon(tool_context: ToolContext, inputs: VirtualTryOnInput) -> str:
@@ -226,18 +257,38 @@ async def virtual_tryon(tool_context: ToolContext, inputs: VirtualTryOnInput) ->
             return f"❌ Error: Could not load garment image '{inputs.garment_image_filename}'.\n\nPlease make sure you've uploaded the garment image first. Use list_reference_images to see all uploaded images."
         
         # Create virtual try-on prompt optimized for Gemini image generation
+        # Add garment-specific instructions based on type
+        garment_specific = ""
+        if inputs.garment_type == "short-sleeve":
+            garment_specific = "\n⚠️ CRITICAL: This is a SHORT-SLEEVED garment. Show the person's BARE ARMS from the sleeve edge down. Remove any long-sleeve undershirts completely."
+        elif inputs.garment_type == "long-sleeve":
+            garment_specific = "\n⚠️ CRITICAL: This is a LONG-SLEEVED garment. Cover the arms completely with the garment's sleeves."
+        elif inputs.garment_type == "sleeveless":
+            garment_specific = "\n⚠️ CRITICAL: This is a SLEEVELESS garment. Show the person's BARE ARMS and SHOULDERS. Remove any existing sleeves completely."
+        
         tryon_prompt = f"""Create a photorealistic virtual try-on image showing the person from the first image wearing the garment from the second image.
+{garment_specific}
 
 CRITICAL REQUIREMENTS:
 1. Preserve the person's exact pose, body proportions, and facial features
-2. Apply the garment naturally onto the person's body with realistic fit
-3. Maintain proper fabric physics - wrinkles, shadows, and natural draping
-4. Keep realistic lighting that matches the person's original image
-5. Preserve the background from the person image
-6. Ensure the garment looks like it's actually being worn, not just pasted on
-7. Match skin tones and lighting conditions realistically
-8. The result should look like a real photograph, not a composite
-9. Create a seamless, professional result that looks completely natural
+2. COMPLETELY REPLACE any existing clothing with the new garment - remove all previous garments
+3. If person is wearing long sleeves and new garment is short-sleeved: Show natural bare arms/skin
+4. If person is wearing short sleeves and new garment is long-sleeved: Extend with garment sleeves
+5. Apply the garment naturally onto the person's body with realistic fit
+6. Maintain proper fabric physics - wrinkles, shadows, and natural draping
+7. Keep realistic lighting that matches the person's original image
+8. Preserve the background from the person image
+9. Ensure the garment looks like it's actually being worn, not just overlaid
+10. Match skin tones and lighting conditions realistically
+11. The result should look like a real photograph, not a composite
+12. Handle sleeve length transitions smoothly - show appropriate skin or fabric
+13. Create a seamless, professional result that looks completely natural
+
+IMPORTANT: If the new garment has different sleeve length than original clothing:
+- Short-sleeved garment → Show natural arms below the sleeves (remove any long-sleeve undershirts)
+- Long-sleeved garment → Extend sleeves to cover arms completely
+- Sleeveless garment → Show natural shoulders and arms (remove all sleeves)
+- Remove any visible parts of the original clothing (like undershirt sleeves showing through)
 
 {f"ADDITIONAL INSTRUCTIONS: {inputs.additional_instructions}" if inputs.additional_instructions else ""}
 
