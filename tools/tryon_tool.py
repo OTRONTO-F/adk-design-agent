@@ -9,23 +9,23 @@ from dotenv import load_dotenv
 from PIL import Image
 import io
 from .rate_limiter import get_rate_limiter
- 
+
 load_dotenv()
- 
+
 # Configure logging
 logger = logging.getLogger(__name__)
- 
+
 # Get rate limiter configuration from environment
 RATE_LIMIT_COOLDOWN = float(os.getenv("RATE_LIMIT_COOLDOWN", "5.0"))
 rate_limiter = get_rate_limiter(RATE_LIMIT_COOLDOWN)
- 
+
 def get_next_version_number(tool_context: ToolContext, asset_name: str) -> int:
     """Get the next version number for a given asset name."""
     asset_versions = tool_context.state.get("asset_versions", {})
     current_version = asset_versions.get(asset_name, 0)
     next_version = current_version + 1
     return next_version
- 
+
 def update_asset_version(tool_context: ToolContext, asset_name: str, version: int, filename: str) -> None:
     """Update the version tracking for an asset."""
     if "asset_versions" not in tool_context.state:
@@ -41,11 +41,11 @@ def update_asset_version(tool_context: ToolContext, asset_name: str, version: in
     if asset_history_key not in tool_context.state:
         tool_context.state[asset_history_key] = []
     tool_context.state[asset_history_key].append({"version": version, "filename": filename})
- 
+
 def create_versioned_filename(asset_name: str, version: int, file_extension: str = "png") -> str:
     """Create a versioned filename for an asset."""
     return f"{asset_name}_v{version}.{file_extension}"
- 
+
 def validate_image_aspect_ratio(image_data: bytes, expected_ratio: tuple = (9, 16), tolerance: float = 0.1) -> tuple[bool, str]:
     """
     Validate if image has the expected aspect ratio (default 9:16 for portrait).
@@ -76,7 +76,7 @@ def validate_image_aspect_ratio(image_data: bytes, expected_ratio: tuple = (9, 1
     except Exception as e:
         logger.warning(f"Could not validate image aspect ratio: {e}")
         return True, "⚠️ Could not validate aspect ratio, proceeding anyway"
- 
+
 async def load_image(tool_context: ToolContext, filename: str):
     """Load an uploaded image artifact by filename or from catalog."""
     try:
@@ -120,7 +120,7 @@ async def load_image(tool_context: ToolContext, filename: str):
     except Exception as e:
         logger.error(f"Error loading image {filename}: {e}")
         return None
- 
+
 def list_tryon_results(tool_context: ToolContext) -> str:
     """List all virtual try-on results created in this session."""
     asset_versions = tool_context.state.get("asset_versions", {})
@@ -136,7 +136,7 @@ def list_tryon_results(tool_context: ToolContext) -> str:
         info_lines.append(f"  • {asset_name}: {total_versions} result(s), latest is v{current_version} ({latest_filename})")
     
     return "\n".join(info_lines)
- 
+
 def list_reference_images(tool_context: ToolContext) -> str:
     """List all uploaded images in the session."""
     reference_images = tool_context.state.get("reference_images", {})
@@ -170,13 +170,13 @@ def list_reference_images(tool_context: ToolContext) -> str:
         info_lines.append("   2. Garment/clothing image (9:16 ratio)")
     
     return "\n".join(info_lines)
- 
- 
+
+
 class ClearImagesInput(BaseModel):
     """Input model for clearing reference images."""
     confirm: bool = Field(..., description="Set to True to confirm deletion of all reference images")
- 
- 
+
+
 def clear_reference_images(tool_context: ToolContext, inputs: ClearImagesInput) -> str:
     """Clear all uploaded reference images from the session."""
     if not inputs.confirm:
@@ -193,8 +193,8 @@ def clear_reference_images(tool_context: ToolContext, inputs: ClearImagesInput) 
     tool_context.state["latest_reference_image"] = None
     
     return f"✅ Successfully deleted {count} reference image(s). You can now upload new images."
- 
- 
+
+
 def get_rate_limit_status(tool_context: ToolContext) -> str:
     """Get current rate limit status and statistics."""
     stats = rate_limiter.get_stats()
@@ -220,14 +220,15 @@ def get_rate_limit_status(tool_context: ToolContext) -> str:
     status_lines.append(f"   You can adjust RATE_LIMIT_COOLDOWN in .env file (currently {RATE_LIMIT_COOLDOWN}s)")
     
     return "\n".join(status_lines)
- 
+
+
 class VirtualTryOnInput(BaseModel):
     person_image_filename: str = Field(..., description="Filename of the person image that was uploaded (e.g., 'reference_image_v1.png')")
     garment_image_filename: str = Field(..., description="Filename of the garment/clothing image that was uploaded (e.g., 'reference_image_v2.png') or from catalog (e.g., 'catalog/1.jpg')")
     result_name: str = Field(default="tryon_result", description="Name for the try-on result (will be versioned automatically)")
     additional_instructions: Optional[str] = Field(default="", description="Optional: Additional instructions for the try-on")
     garment_type: str = Field(default="auto", description="Type of garment: 'short-sleeve', 'long-sleeve', 'sleeveless', 'dress', 'jacket', or 'auto' to detect automatically")
- 
+
 async def virtual_tryon(
     tool_context: ToolContext,
     person_image_filename: str,
@@ -243,7 +244,7 @@ async def virtual_tryon(
     """
     if "GEMINI_API_KEY" not in os.environ:
         raise ValueError("GEMINI_API_KEY environment variable not set.")
- 
+
     # Rate limiting check
     if not rate_limiter.can_make_call():
         wait_time = rate_limiter.time_until_next_call()
@@ -251,9 +252,9 @@ async def virtual_tryon(
         return (
             f"⏳ Rate limit active. Please wait {wait_time:.1f} seconds before trying again."
         )
- 
+
     print("Starting virtual try-on...")
- 
+
     try:
         # ✅ Safely wrap args into Pydantic model
         inputs = VirtualTryOnInput(
@@ -263,21 +264,21 @@ async def virtual_tryon(
             additional_instructions=additional_instructions or "",
             garment_type=garment_type
         )
- 
+
         client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
- 
+
         # Load person image
         logger.info(f"Loading person image: {inputs.person_image_filename}")
         person_image = await load_image(tool_context, inputs.person_image_filename)
         if not person_image:
             return f"❌ Error: Could not load person image '{inputs.person_image_filename}'."
- 
+
         # Load garment image
         logger.info(f"Loading garment image: {inputs.garment_image_filename}")
         garment_image = await load_image(tool_context, inputs.garment_image_filename)
         if not garment_image:
             return f"❌ Error: Could not load garment image '{inputs.garment_image_filename}'."
- 
+
         # Build garment-specific instructions
         garment_specific = ""
         if inputs.garment_type == "short-sleeve":
@@ -286,19 +287,35 @@ async def virtual_tryon(
             garment_specific = "\n⚠️ LONG-SLEEVE: Cover arms completely."
         elif inputs.garment_type == "sleeveless":
             garment_specific = "\n⚠️ SLEEVELESS: Show bare shoulders and arms."
- 
+
         # Full try-on prompt
         tryon_prompt = f"""Create a photorealistic virtual try-on image showing the person from the first image wearing the garment from the second image.
 {garment_specific}
 CRITICAL REQUIREMENTS:
-1. Preserve the person's pose and features.
-2. Replace all existing clothing.
-3. Match fabric physics and lighting.
-4. Maintain original background.
+1. Preserve the person's exact pose, body proportions, and facial features
+2. COMPLETELY REPLACE any existing clothing with the new garment - remove all previous garments
+3. If person is wearing long sleeves and new garment is short-sleeved: Show natural bare arms/skin
+4. If person is wearing short sleeves and new garment is long-sleeved: Extend with garment sleeves
+5. Apply the garment naturally onto the person's body with realistic fit
+6. Maintain proper fabric physics - wrinkles, shadows, and natural draping
+7. Keep realistic lighting that matches the person's original image
+8. Preserve the background from the person image
+9. Ensure the garment looks like it's actually being worn, not just overlaid
+10. Match skin tones and lighting conditions realistically
+11. The result should look like a real photograph, not a composite
+12. Handle sleeve length transitions smoothly - show appropriate skin or fabric
+13. Create a seamless, professional result that looks completely natural
+
+IMPORTANT: If the new garment has different sleeve length than original clothing:
+- Short-sleeved garment → Show natural arms below the sleeves (remove any long-sleeve undershirts)
+- Long-sleeved garment → Extend sleeves to cover arms completely
+- Sleeveless garment → Show natural shoulders and arms (remove all sleeves)
+- Remove any visible parts of the original clothing (like undershirt sleeves showing through)
+
 {f"ADDITIONAL INSTRUCTIONS: {inputs.additional_instructions}" if inputs.additional_instructions else ""}
-Output: Generate in 9:16 portrait aspect ratio.
-"""
- 
+
+Output: Generate the virtual try-on image in 9:16 portrait aspect ratio."""
+
         model = "gemini-2.5-flash-image-preview"
         contents = [
             types.Content(
@@ -307,11 +324,11 @@ Output: Generate in 9:16 portrait aspect ratio.
             )
         ]
         generate_content_config = types.GenerateContentConfig(response_modalities=["IMAGE", "TEXT"])
- 
+
         # Record API call
         rate_limiter.record_call()
         logger.info(f"API call recorded. Total calls: {rate_limiter.total_calls}")
- 
+
         # --- Streamed generation ---
         image_saved = False
         try:
@@ -320,7 +337,7 @@ Output: Generate in 9:16 portrait aspect ratio.
             ):
                 if not chunk.candidates or not chunk.candidates[0].content:
                     continue
- 
+
                 for part in chunk.candidates[0].content.parts:
                     if part.inline_data and part.inline_data.data:
                         image_part = types.Part(inline_data=part.inline_data)
@@ -343,13 +360,13 @@ Output: Generate in 9:16 portrait aspect ratio.
                         except Exception as e:
                             logger.error(f"Error saving artifact: {e}")
                             return f"❌ Error saving try-on result: {e}"
- 
+
             if not image_saved:
                 logger.warning("No inline image data found. Falling back to non-streaming...")
- 
+
         except Exception as stream_err:
             logger.error(f"Streaming failed: {stream_err}")
- 
+
         # --- Fallback non-streaming ---
         resp = client.models.generate_content(
             model=model, contents=contents, config=generate_content_config
@@ -371,19 +388,20 @@ Output: Generate in 9:16 portrait aspect ratio.
                     except Exception as e:
                         logger.error(f"Error saving artifact: {e}")
                         return f"❌ Error saving try-on result: {e}"
- 
+
         return "❌ No image was generated in either mode."
- 
+
     except Exception as e:
         logger.exception("Virtual try-on error")
         return f"❌ Virtual try-on failed: {e}"
+
     
 class CompareTryOnInput(BaseModel):
     """Input model for comparing try-on results."""
     result_filenames: list[str] = Field(..., description="List of try-on result filenames to compare (e.g., ['tryon_result_v1.png', 'tryon_result_v2.png'])")
     show_details: bool = Field(default=True, description="Whether to show detailed comparison information")
- 
- 
+
+
 def compare_tryon_results(tool_context: ToolContext, inputs: CompareTryOnInput) -> str:
     """
     Compare multiple virtual try-on results side-by-side.
@@ -509,8 +527,8 @@ def compare_tryon_results(tool_context: ToolContext, inputs: CompareTryOnInput) 
     comparison_lines.append("   3. That image is already saved and ready to use!")
     
     return "\n".join(comparison_lines)
- 
- 
+
+
 def get_comparison_summary(tool_context: ToolContext) -> str:
     """Get a quick summary of all try-on results for easy comparison."""
     asset_versions = tool_context.state.get("asset_versions", {})
