@@ -228,6 +228,8 @@ class VirtualTryOnInput(BaseModel):
     result_name: str = Field(default="tryon_result", description="Name for the try-on result (will be versioned automatically)")
     additional_instructions: Optional[str] = Field(default="", description="Optional: Additional instructions for the try-on")
     garment_type: str = Field(default="auto", description="Type of garment: 'short-sleeve', 'long-sleeve', 'sleeveless', 'dress', 'jacket', or 'auto' to detect automatically")
+    # NOTE: Size control removed due to Gemini model limitations
+    # The model cannot reliably generate different sizes based on text prompts alone
 
 async def virtual_tryon(
     tool_context: ToolContext,
@@ -241,6 +243,9 @@ async def virtual_tryon(
     AFC-friendly Virtual Try-On tool:
     - Flat parameters for easier Automatic Function Calling.
     - Wraps into VirtualTryOnInput internally for validation.
+    
+    Note: Size/fit control has been removed due to limitations of the Gemini image generation model.
+    The model cannot reliably produce visibly different sizes based on text prompts alone.
     """
     if "GEMINI_API_KEY" not in os.environ:
         raise ValueError("GEMINI_API_KEY environment variable not set.")
@@ -264,6 +269,10 @@ async def virtual_tryon(
             additional_instructions=additional_instructions or "",
             garment_type=garment_type
         )
+        
+        # Log the try-on parameters
+        logger.info(f"🎯 Try-on parameters: Type={inputs.garment_type}")
+        print(f"📦 Using garment type: {inputs.garment_type}")
 
         client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
 
@@ -291,6 +300,7 @@ async def virtual_tryon(
         # Full try-on prompt
         tryon_prompt = f"""Create a photorealistic virtual try-on image showing the person from the first image wearing the garment from the second image.
 {garment_specific}
+
 CRITICAL REQUIREMENTS:
 1. Preserve the person's exact pose, body proportions, and facial features
 2. COMPLETELY REPLACE any existing clothing with the new garment - remove all previous garments
@@ -306,6 +316,20 @@ CRITICAL REQUIREMENTS:
 12. Handle sleeve length transitions smoothly - show appropriate skin or fabric
 13. Create a seamless, professional result that looks completely natural
 
+SIZE AND FIT GUIDELINES (CRITICAL - MUST BE VISUALLY OBVIOUS):
+- **SMALLER SIZES (XS, S)**: Fabric STRETCHES across body, TIGHT fit, sleeves are SHORT, minimal wrinkles, body shape CLEARLY visible
+- **MEDIUM SIZE (M, true-to-size)**: Natural comfortable fit, standard proportions, moderate room
+- **LARGER SIZES (L, XL, XXL)**: EXCESS FABRIC creates WRINKLES and FOLDS, sleeves are LONGER, shoulders DROP, body is HIDDEN by loose fabric
+- **OVERSIZED**: DRAMATICALLY BAGGY, dropped shoulders AT BICEPS, extra length COVERING HIPS, BOXY wide shape, fabric HANGS loosely
+- **SLIM FIT**: Cut HUGS body tightly, EMPHASIZES shape, CLEAN fitted lines, NO bagginess
+- **RELAXED/OVERSIZED FIT**: LOOSE throughout, EXTRA ROOM, fabric has SPACE from body, casual draping
+
+⚠️ **VISUAL DIFFERENCE REQUIREMENT**: 
+- XS should look NOTICEABLY TIGHTER than M
+- XXL should look NOTICEABLY BAGGIER than M  
+- The difference MUST be OBVIOUS in shoulder width, sleeve length, torso looseness, and overall proportions
+- If sizes look similar, you have FAILED the requirement!
+
 IMPORTANT: If the new garment has different sleeve length than original clothing:
 - Short-sleeved garment → Show natural arms below the sleeves (remove any long-sleeve undershirts)
 - Long-sleeved garment → Extend sleeves to cover arms completely
@@ -314,7 +338,7 @@ IMPORTANT: If the new garment has different sleeve length than original clothing
 
 {f"ADDITIONAL INSTRUCTIONS: {inputs.additional_instructions}" if inputs.additional_instructions else ""}
 
-Output: Generate the virtual try-on image in 9:16 portrait aspect ratio."""
+Output: Generate the virtual try-on image in 9:16 portrait aspect ratio with the specified size and fit characteristics clearly visible."""
 
         model = "gemini-2.5-flash-image-preview"
         contents = [
@@ -396,171 +420,372 @@ Output: Generate the virtual try-on image in 9:16 portrait aspect ratio."""
         return f"❌ Virtual try-on failed: {e}"
 
     
-class CompareTryOnInput(BaseModel):
-    """Input model for comparing try-on results."""
-    result_filenames: list[str] = Field(..., description="List of try-on result filenames to compare (e.g., ['tryon_result_v1.png', 'tryon_result_v2.png'])")
-    show_details: bool = Field(default=True, description="Whether to show detailed comparison information")
+class BatchMultiviewTryOnInput(BaseModel):
+    """Input model for batch try-on on all 3 multiview images."""
+    garment_image_filename: str = Field(..., description="Filename of the garment to try on all 3 views")
+    result_name_prefix: str = Field(default="tryon_result", description="Prefix for result filenames")
 
 
-def compare_tryon_results(tool_context: ToolContext, inputs: CompareTryOnInput) -> str:
+async def batch_multiview_tryon(
+    tool_context: ToolContext,
+    garment_image_filename: str,
+    result_name_prefix: str = "tryon_result"
+) -> str:
     """
-    Compare multiple virtual try-on results side-by-side.
+    Automatically try-on a garment on all 3 multiview images (front, side, back).
     
-    Shows version history, metadata, and helps user select the best result.
+    This function looks for the latest multiview set generated by generate_multiview_person
+    and performs try-on on all 3 views automatically.
+    
+    Args:
+        garment_image_filename: The garment to try on (e.g., "catalog/1.jpg")
+        result_name_prefix: Prefix for result filenames (default: "tryon_result")
+    
+    Returns:
+        Status message with all 3 try-on results
     """
-    if len(inputs.result_filenames) < 2:
-        return "❌ Please provide at least 2 result filenames to compare.\n\nExample: ['tryon_result_v1.png', 'tryon_result_v2.png']"
+    if "GEMINI_API_KEY" not in os.environ:
+        raise ValueError("GEMINI_API_KEY environment variable not set.")
     
-    if len(inputs.result_filenames) > 4:
-        return "❌ Maximum 4 results can be compared at once. Please select up to 4 filenames."
+    logger.info(f"🎨 Starting batch multiview try-on with garment: {garment_image_filename}")
+    print(f"🎨 Batch multiview try-on starting...")
     
-    # Get all asset history
-    asset_versions = tool_context.state.get("asset_versions", {})
+    try:
+        inputs = BatchMultiviewTryOnInput(
+            garment_image_filename=garment_image_filename,
+            result_name_prefix=result_name_prefix
+        )
+        
+        # Get the latest multiview set from state
+        multiview_set = tool_context.state.get("latest_multiview_set")
+        if not multiview_set:
+            return "❌ No multiview images found. Please generate multiview first using generate_multiview_person."
+        
+        if len(multiview_set) < 3:
+            return f"⚠️ Only {len(multiview_set)} views available. Expected 3 (front/side/back)."
+        
+        result_lines = ["🎨 Batch Multi-View Try-On Started"]
+        result_lines.append("=" * 60)
+        result_lines.append("")
+        result_lines.append(f"📦 Garment: {inputs.garment_image_filename}")
+        result_lines.append("")
+        
+        results = {}
+        views = ['front', 'side', 'back']
+        
+        for idx, view_name in enumerate(views, 1):
+            if view_name not in multiview_set:
+                result_lines.append(f"⚠️ {view_name.capitalize()} view not found, skipping...")
+                continue
+            
+            person_image_filename = multiview_set[view_name]
+            result_lines.append(f"🔄 Try-on {idx}/3: {view_name.capitalize()} view...")
+            result_lines.append(f"   Person: {person_image_filename}")
+            
+            logger.info(f"Processing {view_name} view: {person_image_filename}")
+            
+            # Call virtual_tryon for this view
+            try:
+                tryon_result = await virtual_tryon(
+                    tool_context=tool_context,
+                    person_image_filename=person_image_filename,
+                    garment_image_filename=inputs.garment_image_filename,
+                    result_name=inputs.result_name_prefix,
+                    additional_instructions=f"This is the {view_name} view of the person.",
+                    garment_type="auto"
+                )
+                
+                # Extract result filename from the result message
+                if "✅" in tryon_result and ".png" in tryon_result:
+                    # Parse the result filename
+                    import re
+                    match = re.search(r'(tryon_result_v\d+\.png)', tryon_result)
+                    if match:
+                        result_filename = match.group(1)
+                        results[view_name] = result_filename
+                        result_lines.append(f"   ✅ Success: {result_filename}")
+                    else:
+                        result_lines.append(f"   ✅ Success (filename not parsed)")
+                else:
+                    result_lines.append(f"   ⚠️ {tryon_result}")
+                
+                logger.info(f"✅ Completed {view_name} view")
+                
+            except Exception as e:
+                logger.error(f"Error in {view_name} view try-on: {e}")
+                result_lines.append(f"   ❌ Failed: {e}")
+            
+            result_lines.append("")
+        
+        # Summary
+        result_lines.append("=" * 60)
+        result_lines.append("📊 Batch Try-On Summary:")
+        result_lines.append(f"   • Total views processed: {len(results)}/3")
+        
+        if results:
+            result_lines.append("")
+            result_lines.append("📁 Generated Results:")
+            if 'front' in results:
+                result_lines.append(f"   🔹 Front: {results['front']}")
+            if 'side' in results:
+                result_lines.append(f"   🔹 Side: {results['side']}")
+            if 'back' in results:
+                result_lines.append(f"   🔹 Back: {results['back']}")
+            
+            result_lines.append("")
+            result_lines.append("💡 Next Steps:")
+            result_lines.append("   1. View all 3 results in the artifacts panel")
+            result_lines.append("   2. Try another garment or upload new person image!")
+            
+            # Store batch results in state
+            tool_context.state["latest_batch_tryon"] = results
+            tool_context.state["batch_tryon_garment"] = inputs.garment_image_filename
+            
+        else:
+            result_lines.append("")
+            result_lines.append("❌ No try-ons were successful.")
+            result_lines.append("💡 Tip: Check your multiview images and garment file.")
+        
+        return "\n".join(result_lines)
+        
+    except Exception as e:
+        logger.exception("Batch multiview try-on error")
+        return f"❌ Batch multiview try-on failed: {e}"
+
+
+class GenerateMultiviewInput(BaseModel):
+    """Input model for generating multi-view person images."""
+    person_image_filename: str = Field(..., description="Filename of the person image (front view) to generate other views from")
+    save_as_prefix: str = Field(default="multiview_person", description="Prefix for saved images (will be suffixed with _front, _side, _back)")
+
+
+async def generate_multiview_person(
+    tool_context: ToolContext,
+    person_image_filename: str,
+    save_as_prefix: str = "multiview_person"
+) -> str:
+    """
+    Generate 3 views (front, side, back) of a person from a single front-view image.
     
-    if not asset_versions:
-        return "No try-on results have been created yet. Generate some results first using virtual_tryon."
+    This function attempts to create side and back views using AI image generation.
+    Note: Results may vary in quality due to AI model limitations with 3D understanding.
     
-    comparison_lines = ["📊 Virtual Try-On Results Comparison"]
-    comparison_lines.append("=" * 70)
-    comparison_lines.append("")
+    Args:
+        person_image_filename: The front-view person image filename
+        save_as_prefix: Prefix for saved multiview images (default: "multiview_person")
     
-    # Build comparison table
-    results_data = []
-    
-    for idx, filename in enumerate(inputs.result_filenames, 1):
-        # Extract asset name and version from filename
-        # Format: asset_name_vX.png
+    Returns:
+        Status message with generated image filenames
+    """
+    if "GEMINI_API_KEY" not in os.environ:
+        raise ValueError("GEMINI_API_KEY environment variable not set.")
+
+    logger.info(f"🔄 Generating multiview images from: {person_image_filename}")
+    print(f"🔄 Starting multiview generation from {person_image_filename}...")
+
+    try:
+        # Wrap into Pydantic model
+        inputs = GenerateMultiviewInput(
+            person_image_filename=person_image_filename,
+            save_as_prefix=save_as_prefix
+        )
+        
+        client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+        
+        # Load the original person image
+        logger.info(f"Loading person image: {inputs.person_image_filename}")
+        person_image = await load_image(tool_context, inputs.person_image_filename)
+        if not person_image:
+            return f"❌ Error: Could not load person image '{inputs.person_image_filename}'."
+        
+        result_lines = ["🎨 Multi-View Generation Started"]
+        result_lines.append("=" * 60)
+        result_lines.append("")
+        
+        generated_files = {}
+        
+        # View 1: Front (keep original)
+        logger.info("📸 View 1: Front (using original image)")
+        front_filename = f"{inputs.save_as_prefix}_front_v1.png"
         try:
-            if "_v" in filename and ".png" in filename:
-                parts = filename.replace(".png", "").split("_v")
-                asset_name = parts[0]
-                version = int(parts[1])
-            else:
-                comparison_lines.append(f"⚠️  Could not parse filename: {filename}")
-                continue
-            
-            # Get history for this asset
-            history_key = f"{asset_name}_history"
-            history = tool_context.state.get(history_key, [])
-            
-            # Find this specific version in history
-            version_data = None
-            for item in history:
-                if item.get("version") == version:
-                    version_data = item
-                    break
-            
-            if not version_data:
-                comparison_lines.append(f"⚠️  Version data not found for: {filename}")
-                continue
-            
-            results_data.append({
-                "index": idx,
-                "filename": filename,
-                "asset_name": asset_name,
-                "version": version,
-                "data": version_data
-            })
-            
+            # Save original as front view
+            await tool_context.save_artifact(filename=front_filename, artifact=person_image)
+            generated_files['front'] = front_filename
+            result_lines.append(f"✅ Front view: {front_filename} (original)")
+            logger.info(f"✅ Saved front view: {front_filename}")
         except Exception as e:
-            logger.warning(f"Error processing filename {filename}: {e}")
-            comparison_lines.append(f"⚠️  Error processing: {filename}")
-    
-    if not results_data:
-        return "❌ No valid results found to compare. Check your filenames."
-    
-    # Display comparison header
-    comparison_lines.append(f"Comparing {len(results_data)} results:")
-    comparison_lines.append("")
-    
-    # Create comparison table
-    header = "│ # │ Filename                    │ Version │"
-    separator = "├───┼─────────────────────────────┼─────────┤"
-    
-    comparison_lines.append("┌───┬─────────────────────────────┬─────────┐")
-    comparison_lines.append(header)
-    comparison_lines.append(separator)
-    
-    for result in results_data:
-        filename_display = result["filename"][:27] + "..." if len(result["filename"]) > 27 else result["filename"]
-        row = f"│ {result['index']} │ {filename_display:27} │ v{result['version']:5} │"
-        comparison_lines.append(row)
-    
-    comparison_lines.append("└───┴─────────────────────────────┴─────────┘")
-    comparison_lines.append("")
-    
-    # Show detailed information if requested
-    if inputs.show_details:
-        comparison_lines.append("📋 Detailed Information:")
-        comparison_lines.append("")
+            logger.error(f"Error saving front view: {e}")
+            result_lines.append(f"❌ Front view failed: {e}")
         
-        for result in results_data:
-            comparison_lines.append(f"🔹 Result #{result['index']}: {result['filename']}")
-            comparison_lines.append(f"   • Asset name: {result['asset_name']}")
-            comparison_lines.append(f"   • Version: v{result['version']}")
-            
-            # Get content review if available (from deep think mode)
-            content_review = tool_context.state.get("content_review")
-            if content_review and result['index'] == len(results_data):  # Only for latest
-                comparison_lines.append(f"   • Quality Review: Available")
-                if hasattr(content_review, 'garment_fit'):
-                    comparison_lines.append(f"     - Garment fit: {'✅' if content_review.garment_fit else '⚠️'}")
-                if hasattr(content_review, 'realistic_lighting'):
-                    comparison_lines.append(f"     - Lighting: {'✅' if content_review.realistic_lighting else '⚠️'}")
-                if hasattr(content_review, 'visual_appeal'):
-                    comparison_lines.append(f"     - Visual appeal: {'✅' if content_review.visual_appeal else '⚠️'}")
-            
-            comparison_lines.append("")
-    
-    # Add recommendations
-    comparison_lines.append("💡 Recommendations:")
-    comparison_lines.append("")
-    comparison_lines.append("   • View all images in the artifacts panel to compare visually")
-    comparison_lines.append("   • Use load_artifacts_tool to load and view specific versions")
-    comparison_lines.append(f"   • Latest version is usually: {results_data[-1]['filename']}")
-    
-    # Add selection helper
-    comparison_lines.append("")
-    comparison_lines.append("📌 To select your preferred result:")
-    comparison_lines.append("   1. View the images in the artifacts panel")
-    comparison_lines.append("   2. Note which version looks best")
-    comparison_lines.append("   3. That image is already saved and ready to use!")
-    
-    return "\n".join(comparison_lines)
+        # View 2: Side View
+        logger.info("🔄 View 2: Generating side view...")
+        result_lines.append("")
+        result_lines.append("🔄 Generating side view (this may take a moment)...")
+        
+        side_prompt = """Generate a REALISTIC side profile view (90 degrees) of this person.
 
+CRITICAL REQUIREMENTS:
+1. Show the person from the SIDE (profile view)
+2. The person should be facing LEFT or RIGHT (90-degree angle from camera)
+3. Maintain the EXACT SAME person - same face, hair, body, clothing, and appearance
+4. Keep the same clothing style and colors
+5. Same body proportions and height
+6. Natural side profile pose (standing straight)
+7. Same background style
+8. Same lighting conditions
+9. Photorealistic quality
+10. 9:16 portrait aspect ratio
 
-def get_comparison_summary(tool_context: ToolContext) -> str:
-    """Get a quick summary of all try-on results for easy comparison."""
-    asset_versions = tool_context.state.get("asset_versions", {})
-    
-    if not asset_versions:
-        return "No try-on results available. Create some results first using virtual_tryon."
-    
-    summary_lines = ["📊 Quick Comparison Summary"]
-    summary_lines.append("=" * 60)
-    summary_lines.append("")
-    
-    total_results = 0
-    for asset_name, current_version in asset_versions.items():
-        history_key = f"{asset_name}_history"
-        history = tool_context.state.get(history_key, [])
-        total_versions = len(history)
-        total_results += total_versions
+IMPORTANT:
+- This is a SIDE VIEW, not front view
+- Show the person's profile clearly
+- Maintain consistent appearance with the original image
+- Natural and realistic pose"""
+
+        try:
+            # Check rate limit
+            if not rate_limiter.can_make_call():
+                wait_time = rate_limiter.time_until_next_call()
+                logger.info(f"⏳ Rate limit: waiting {wait_time:.1f}s")
+                rate_limiter.wait_if_needed()
+            
+            rate_limiter.record_call()
+            
+            model = "gemini-2.5-flash-image-preview"
+            contents = [
+                types.Content(
+                    role="user",
+                    parts=[person_image, types.Part.from_text(text=side_prompt)],
+                )
+            ]
+            config = types.GenerateContentConfig(response_modalities=["IMAGE"])
+            
+            # Generate side view
+            response = client.models.generate_content(
+                model=model, contents=contents, config=config
+            )
+            
+            if response.candidates and response.candidates[0].content:
+                for part in response.candidates[0].content.parts:
+                    if part.inline_data and part.inline_data.data:
+                        image_part = types.Part(inline_data=part.inline_data)
+                        side_filename = f"{inputs.save_as_prefix}_side_v1.png"
+                        await tool_context.save_artifact(filename=side_filename, artifact=image_part)
+                        generated_files['side'] = side_filename
+                        result_lines.append(f"✅ Side view: {side_filename}")
+                        logger.info(f"✅ Generated side view: {side_filename}")
+                        break
+            else:
+                result_lines.append(f"⚠️ Side view: No image generated")
+                logger.warning("Side view generation returned no image")
+                
+        except Exception as e:
+            logger.error(f"Error generating side view: {e}")
+            result_lines.append(f"❌ Side view failed: {e}")
         
-        summary_lines.append(f"🎨 {asset_name}:")
-        summary_lines.append(f"   • Total versions: {total_versions}")
-        summary_lines.append(f"   • Latest: v{current_version}")
+        # View 3: Back View
+        logger.info("🔄 View 3: Generating back view...")
+        result_lines.append("")
+        result_lines.append("🔄 Generating back view (this may take a moment)...")
         
-        # List all versions
-        if total_versions > 0:
-            summary_lines.append(f"   • Available versions:")
-            for item in history:
-                summary_lines.append(f"     - {item['filename']}")
+        back_prompt = """Generate a REALISTIC back view (180 degrees) of this person.
+
+CRITICAL REQUIREMENTS:
+1. Show the person from the BACK (rear view)
+2. The person should be facing AWAY from camera (180-degree turn)
+3. Maintain the EXACT SAME person - same hair, body, clothing, and appearance
+4. Keep the same clothing style and colors - show the BACK of the garment
+5. Same body proportions and height
+6. Natural back pose (standing straight, facing away)
+7. Same background style
+8. Same lighting conditions
+9. Photorealistic quality
+10. 9:16 portrait aspect ratio
+
+IMPORTANT:
+- This is a BACK VIEW, not front view
+- Show the back of the person's head, body, and clothing
+- Maintain consistent appearance with the original image
+- Natural and realistic pose
+- Show what the clothing looks like from behind"""
+
+        try:
+            # Check rate limit
+            if not rate_limiter.can_make_call():
+                wait_time = rate_limiter.time_until_next_call()
+                logger.info(f"⏳ Rate limit: waiting {wait_time:.1f}s")
+                rate_limiter.wait_if_needed()
+            
+            rate_limiter.record_call()
+            
+            contents = [
+                types.Content(
+                    role="user",
+                    parts=[person_image, types.Part.from_text(text=back_prompt)],
+                )
+            ]
+            
+            # Generate back view
+            response = client.models.generate_content(
+                model=model, contents=contents, config=config
+            )
+            
+            if response.candidates and response.candidates[0].content:
+                for part in response.candidates[0].content.parts:
+                    if part.inline_data and part.inline_data.data:
+                        image_part = types.Part(inline_data=part.inline_data)
+                        back_filename = f"{inputs.save_as_prefix}_back_v1.png"
+                        await tool_context.save_artifact(filename=back_filename, artifact=image_part)
+                        generated_files['back'] = back_filename
+                        result_lines.append(f"✅ Back view: {back_filename}")
+                        logger.info(f"✅ Generated back view: {back_filename}")
+                        break
+            else:
+                result_lines.append(f"⚠️ Back view: No image generated")
+                logger.warning("Back view generation returned no image")
+                
+        except Exception as e:
+            logger.error(f"Error generating back view: {e}")
+            result_lines.append(f"❌ Back view failed: {e}")
         
-        summary_lines.append("")
-    
-    summary_lines.append(f"Total results created: {total_results}")
-    summary_lines.append("")
-    summary_lines.append("💡 To compare specific versions, use compare_tryon_results with the filenames above.")
-    
-    return "\n".join(summary_lines)
+        # Summary
+        result_lines.append("")
+        result_lines.append("=" * 60)
+        result_lines.append("📊 Generation Summary:")
+        result_lines.append(f"   • Total views generated: {len(generated_files)}/3")
+        
+        if generated_files:
+            result_lines.append("")
+            result_lines.append("📁 Generated Files:")
+            if 'front' in generated_files:
+                result_lines.append(f"   🔹 Front: {generated_files['front']}")
+            if 'side' in generated_files:
+                result_lines.append(f"   🔹 Side: {generated_files['side']}")
+            if 'back' in generated_files:
+                result_lines.append(f"   🔹 Back: {generated_files['back']}")
+            
+            result_lines.append("")
+            result_lines.append("💡 Next Steps:")
+            result_lines.append("   1. Review the generated views in the artifacts panel")
+            result_lines.append("   2. Use any of these views with virtual_tryon")
+            result_lines.append("   3. Try-on the same garment on all 3 views for complete preview!")
+            
+            # Store multiview info in state
+            tool_context.state["latest_multiview_set"] = generated_files
+            tool_context.state["multiview_source"] = inputs.person_image_filename
+            
+        else:
+            result_lines.append("")
+            result_lines.append("❌ No views were generated successfully.")
+            result_lines.append("💡 Tip: Try with a different source image or check your API key.")
+        
+        result_lines.append("")
+        result_lines.append("⚠️ Note: AI-generated side/back views may not be perfect due to")
+        result_lines.append("   model limitations with 3D understanding. For best results,")
+        result_lines.append("   consider uploading actual photos from different angles.")
+        
+        return "\n".join(result_lines)
+        
+    except Exception as e:
+        logger.exception("Multiview generation error")
+        return f"❌ Multiview generation failed: {e}"

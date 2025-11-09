@@ -49,9 +49,9 @@ try:
         list_tryon_results, 
         list_reference_images, 
         clear_reference_images, 
-        get_rate_limit_status, 
-        compare_tryon_results, 
-        get_comparison_summary
+        get_rate_limit_status,
+        generate_multiview_person,
+        batch_multiview_tryon
     )
     from .tools.catalog_tool import list_catalog_clothes, select_catalog_cloth
     from .prompts import (
@@ -67,9 +67,9 @@ except ImportError:
         list_tryon_results, 
         list_reference_images, 
         clear_reference_images, 
-        get_rate_limit_status, 
-        compare_tryon_results, 
-        get_comparison_summary
+        get_rate_limit_status,
+        generate_multiview_person,
+        batch_multiview_tryon
     )
     from tools.catalog_tool import list_catalog_clothes, select_catalog_cloth
     from prompts import (
@@ -167,7 +167,8 @@ image_manager_agent = LlmAgent(
     tools=[
         list_reference_images,
         clear_reference_images,
-        load_artifacts_tool
+        load_artifacts_tool,
+        generate_multiview_person
     ],
     output_key="latest_reference_image",  # Pass image filename to next agent
     before_model_callback=process_reference_images_callback
@@ -202,9 +203,8 @@ tryon_specialist_agent = LlmAgent(
     tools=[
         virtual_tryon,
         list_tryon_results,
-        compare_tryon_results,
-        get_comparison_summary,
-        get_rate_limit_status
+        get_rate_limit_status,
+        batch_multiview_tryon
     ],
     output_key="tryon_result",  # Store final result
     before_model_callback=process_reference_images_callback
