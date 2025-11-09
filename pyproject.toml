@@ -3,20 +3,27 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "social_media_agent"
-version = "0.0.1"
+name = "adk-design-agent"
+version = "3.2.0"
 authors = [
-  { name="Test User", email="test@google.com" },
+  { name="OTRONTO-F", email="otronto.f@example.com" },
 ]
-description = "A social media agent"
+description = "An intelligent multi-agent AI system built with Google ADK for virtual clothing try-on with automatic multi-view generation and batch processing"
 readme = "README.md"
-requires-python = ">=3.7"
+requires-python = ">=3.10"
+keywords = ["virtual-try-on", "ai-agent", "google-adk", "gemini", "fashion", "multi-agent", "imagen"]
 classifiers = [
     "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 
 [project.urls]
-"Homepage" = "https://github.com/pypa/sampleproject"
-"Bug Tracker" = "https://github.com/pypa/sampleproject/issues"
+"Homepage" = "https://github.com/OTRONTO-F/adk-design-agent"
+"Bug Tracker" = "https://github.com/OTRONTO-F/adk-design-agent/issues"
+"Documentation" = "https://github.com/OTRONTO-F/adk-design-agent#readme"
