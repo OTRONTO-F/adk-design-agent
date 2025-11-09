@@ -6,65 +6,70 @@ An intelligent multi-agent AI system built with Google ADK for virtual clothing 
 
 ### Core Features
 
-- ✅ **Virtual Try-On**: Select catalog garments and see realistic try-on results
+- ✅ **Multi-View Try-On**: Automatic 3-angle try-on (front/side/back)
 - ✅ **Catalog System**: Browse 10 curated fashion garments (no uploads needed)
 - ✅ **Auto-Start Mode**: New image upload automatically begins workflow
+- ✅ **Batch Processing**: Try-on all 3 views in one operation
 - ✅ **Continuous Workflow**: Unlimited try-ons with automatic versioning
 - ✅ **Rate Limiting**: Smart cooldown (5s) prevents excessive API calls
-- ✅ **Result Comparison**: Compare multiple try-on versions side-by-side
 - ✅ **Image Validation**: Automatic person image validation
 - ✅ **9:16 Aspect Ratio**: Optimized for portrait/mobile viewing
 - ✅ **Session Management**: Track all uploads and try-on results
 
-### v3.1.0 - Interactive Multi-Agent Architecture ⭐ CURRENT
+### v3.2.0 - Multi-View Auto Try-On System ⭐ CURRENT
 
 - 🎯 **Interactive Coordinator**: User-driven workflow with LLM intelligence
-- 🖼️ **Image Manager Agent**: Handles person image uploads with auto-start (3 tools)
+- 🖼️ **Image Manager Agent**: Auto-generates 3 views from 1 image (4 tools)
 - 👔 **Catalog Manager Agent**: Shows catalog and manages selection (2 tools)
-- ✨ **Try-On Specialist Agent**: Executes virtual try-on operations (5 tools)
+- ✨ **Try-On Specialist Agent**: Batch try-on on all 3 views automatically (4 tools)
 - 📊 **Clean Organization**: 10 tools distributed across 3 specialized sub-agents
-- � **Fast Workflow**: Auto-start mode for continuous try-ons
+- 🚀 **Fast Workflow**: Auto-start mode with automatic multi-view generation
 - 💬 **User Control**: Interactive with natural conversation flow
+- 🎨 **Complete View**: See garments from every angle instantly
 
 ## 🏗️ Architecture
 
-### Interactive Multi-Agent System (v3.1.0)
+### Interactive Multi-Agent System (v3.2.0)
 
 ```text
 COORDINATOR AGENT (LlmAgent - Interactive)
     │
-    ├─→ Image Manager Agent (3 tools) - AUTO-START
+    ├─→ Image Manager Agent (4 tools) - AUTO-START + AUTO-MULTIVIEW
     │   ├─ list_reference_images
     │   ├─ clear_reference_images
-    │   └─ load_artifacts_tool
+    │   ├─ load_artifacts_tool
+    │   └─ generate_multiview_person ⭐ NEW
     │
     ├─→ Catalog Manager Agent (2 tools)
     │   ├─ list_catalog_clothes
     │   └─ select_catalog_cloth
     │
-    └─→ Try-On Specialist Agent (5 tools)
+    └─→ Try-On Specialist Agent (4 tools)
         ├─ virtual_tryon
         ├─ list_tryon_results
-        ├─ compare_tryon_results
-        ├─ get_comparison_summary
-        └─ get_rate_limit_status
+        ├─ get_rate_limit_status
+        └─ batch_multiview_tryon ⭐ NEW
 ```
 
-**Why Interactive?**
+**Why Interactive + Auto Batch?**
 
 - ✅ User controls pace at each phase
+- ✅ Auto-generates 3 views from 1 image
 - ✅ Auto-start on new image upload
+- ✅ Batch try-on all 3 views automatically
 - ✅ Natural conversation flow
 - ✅ Flexible and maintainable
 - ✅ Support for continuous operations
+- ✅ Complete angle coverage instantly
 
 ## 🔄 Workflow
 
-### Auto-Start Workflow (v3.1.0)
+### Auto-Start Workflow (v3.2.0)
 
-1. **Upload Person Image** → AUTO-START
+1. **Upload Person Image** → AUTO-MULTIVIEW
    - Image saved automatically (reference_image_v1.png)
-   - System immediately shows catalog
+   - System generates 3 views: front, side, back (~10-15s)
+   - Catalog displayed automatically
    
 2. **View Catalog** → AUTOMATIC
    - 10 garments displayed
@@ -74,26 +79,28 @@ COORDINATOR AGENT (LlmAgent - Interactive)
    - User chooses garment
    - Confirmation displayed
    
-4. **Execute Try-On** → AUTOMATIC
-   - Virtual try-on processed
-   - Result saved (tryon_result_v1.png)
+4. **Execute Batch Try-On** → AUTOMATIC
+   - Try-on processed on all 3 views (~15-20s)
+   - Results saved: tryon_result_v1.png (front), v2.png (side), v3.png (back)
    
-5. **View Result** → WAIT
-   - User reviews result
-   - Can compare with previous versions
+5. **View Results** → WAIT
+   - User reviews all 3 results
+   - Complete angle coverage
    
 6. **Continue?** → INTERACTIVE
-   - Upload new person (→ auto-start)
-   - Try different garment (same person)
-   - Compare results
+   - Upload new person (→ auto-start + auto-multiview)
+   - Try different garment (batch try-on all 3 views)
+   - View all results
    - Finish
 
 ### Continuous Workflow
 
 - Upload multiple person images (v1, v2, v3...)
-- Each upload auto-starts new workflow
-- All results preserved for comparison
+- Each upload auto-starts workflow with multi-view generation
+- All 3 views processed automatically for each garment
+- All results preserved (v1, v2, v3 for first garment, v4, v5, v6 for second, etc.)
 - No manual cleanup needed
+- Complete angle coverage for every try-on
 
 ## Prerequisites
 
@@ -214,61 +221,38 @@ User: "I want to try garment #2"
 Agent: "✅ Navy Business Suit selected!
         
         Checking rate limit... ✅ Ready!
-        Creating your virtual try-on... 🎨"
+        Creating batch try-on on all 3 views... 🎨"
         
-Agent: "✨ Virtual Try-On Complete!
+Agent: "✨ Virtual Try-On Complete - All 3 Views!
         
-        📸 Result: tryon_result_v1.png
+        📸 Front view: tryon_result_v1.png
+        📸 Side view: tryon_result_v2.png
+        📸 Back view: tryon_result_v3.png
         
-        How does it look? Would you like to:
-        • Try another garment
-        • Compare with other results
-        • Get a comparison summary"
-```
-
-### Step 4: Compare Results (Try-On Specialist)
-
-```text
-User: "Compare my try-on results"
-Agent: [Shows all try-on versions]
-       "Here are all your try-ons:
-        
-        v1: Navy Business Suit
-        v2: Denim Jacket
-        v3: Leather Biker Jacket
-        
-        Which looks best to you?"
-
-User: "Show me a comparison summary"
-Agent: [Calls get_comparison_summary]
-       "📊 Comparison Summary:
-        
-        ✅ Best Match: Denim Jacket (v2)
-        • Natural fit
-        • Great color coordination
-        • Most versatile style"
+        You can see the Navy Suit from every angle! 
+        Want to try another garment?"
 ```
 
 ## 🛠️ Available Tools
 
-### Image Manager Agent (3 tools)
+### Image Manager Agent (4 tools)
 
 1. **list_reference_images** - List all uploaded person images
 2. **clear_reference_images** - Clear all uploaded images
 3. **load_artifacts_tool** - Load previous artifacts
+4. **generate_multiview_person** - Generate 3 views (front/side/back) from 1 image ⭐ NEW
 
 ### Catalog Manager Agent (2 tools)
 
 1. **list_catalog_clothes** - Display all 10 catalog garments
 2. **select_catalog_cloth** - Select garment by ID (1-10)
 
-### Try-On Specialist Agent (5 tools)
+### Try-On Specialist Agent (4 tools)
 
-1. **virtual_tryon** - Execute virtual try-on with selected garment
+1. **virtual_tryon** - Execute single virtual try-on
 2. **list_tryon_results** - Show all try-on results
-3. **compare_tryon_results** - Compare multiple versions
-4. **get_comparison_summary** - Get AI analysis of comparisons
-5. **get_rate_limit_status** - Check cooldown status
+3. **get_rate_limit_status** - Check cooldown status
+4. **batch_multiview_tryon** - Try-on garment on all 3 views automatically ⭐ NEW
 
 ## 📁 File Structure
 
@@ -512,7 +496,19 @@ For issues and questions:
 
 ## 🎯 Version History
 
-### v3.1.0 (Latest) - Interactive Multi-Agent with AUTO-START
+### v3.2.0 - Multi-View Auto Try-On System ⭐ CURRENT
+
+- ✅ **MULTI-VIEW GENERATION**: Auto-generates 3 views (front/side/back) from 1 image
+- ✅ **BATCH TRY-ON**: Automatic try-on on all 3 views in one operation
+- ✅ **AUTO-START + AUTO-MULTIVIEW**: New image upload triggers complete workflow
+- ✅ **STREAMLINED UX**: No questions about garment_type or view selection
+- ✅ Interactive coordinator with 3 specialist agents
+- ✅ User-controlled workflow with automatic batch processing
+- ✅ 10 tools distributed across agents (4+2+4)
+- ✅ Complete angle coverage for every try-on
+- ✅ Enhanced documentation and cleanup
+
+### v3.1.0 - Interactive Multi-Agent Architecture
 
 - ✅ **AUTO-START MODE**: New image upload triggers automatic workflow
 - ✅ Interactive coordinator with 3 specialist agents
