@@ -1,6 +1,18 @@
 # Virtual Try-On AI Agent
 
-An intelligent multi-agent AI system built with Google ADK for virtual clothing try-on. Upload a person image, select from our catalog, and let AI show you how the outfit would look!
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![Python](https://img.shields.io/badge/python-v3.10+-blue.svg)](https://www.python.org/)
+[![Google ADK](https://img.shields.io/badge/Google%20ADK-Latest-green.svg)](https://github.com/google/adk)
+[![Gemini](https://img.shields.io/badge/Gemini-2.5%20Flash%20Image%20Preview-orange.svg)](https://ai.google.dev/)
+[![Version](https://img.shields.io/badge/version-v3.2.0-brightgreen.svg)](https://github.com/OTRONTO-F/adk-design-agent)
+[![Status](https://img.shields.io/badge/status-Active-success.svg)](https://github.com/OTRONTO-F/adk-design-agent)
+
+<div align="center">
+  <img src="./assets/adk-logo.png" alt="ADK Logo" width="200"/>
+  <h1>ADK Design Agent</h1>
+</div>
+
+An intelligent multi-agent AI system built with Google ADK for virtual clothing try-on. Upload a person image, select from our catalog, and let AI show you how the outfit would look from all angles!
 
 ## 🎯 Features
 
