@@ -51,7 +51,8 @@ try:
         clear_reference_images, 
         get_rate_limit_status,
         generate_multiview_person,
-        batch_multiview_tryon
+        batch_multiview_tryon,
+        generate_video_from_results
     )
     from .tools.catalog_tool import list_catalog_clothes, select_catalog_cloth
     from .prompts import (
@@ -69,7 +70,8 @@ except ImportError:
         clear_reference_images, 
         get_rate_limit_status,
         generate_multiview_person,
-        batch_multiview_tryon
+        batch_multiview_tryon,
+        generate_video_from_results
     )
     from tools.catalog_tool import list_catalog_clothes, select_catalog_cloth
     from prompts import (
@@ -192,19 +194,20 @@ catalog_manager_agent = LlmAgent(
 )
 
 # 3. Virtual Try-On Specialist Agent (Step 3: Try-On Execution)
-# Handles: Try-on execution, results, comparison, rate limiting
+# Handles: Try-on execution, results, comparison, rate limiting, video generation
 # Input: latest_reference_image and selected_garment from previous agents
 # Output: tryon_result stored in state
 tryon_specialist_agent = LlmAgent(
     name="tryon_specialist_agent",
     model="gemini-2.5-flash",
     instruction=TRYON_SPECIALIST_INSTRUCTION,
-    description="Step 3: Executes virtual try-on and manages results",
+    description="Step 3: Executes virtual try-on, manages results, and generates videos",
     tools=[
         virtual_tryon,
         list_tryon_results,
         get_rate_limit_status,
-        batch_multiview_tryon
+        batch_multiview_tryon,
+        generate_video_from_results
     ],
     output_key="tryon_result",  # Store final result
     before_model_callback=process_reference_images_callback

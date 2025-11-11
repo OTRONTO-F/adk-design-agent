@@ -22,6 +22,7 @@ An intelligent multi-agent AI system built with Google ADK for virtual clothing 
 - ✅ **Catalog System**: Browse 10 curated fashion garments (no uploads needed)
 - ✅ **Auto-Start Mode**: New image upload automatically begins workflow
 - ✅ **Batch Processing**: Try-on all 3 views in one operation
+- 🎬 **Video Generation**: Create promotional videos with Veo 3.1 ⭐ NEW
 - ✅ **Continuous Workflow**: Unlimited try-ons with automatic versioning
 - ✅ **Rate Limiting**: Smart cooldown (5s) prevents excessive API calls
 - ✅ **Image Validation**: Automatic person image validation
@@ -33,11 +34,12 @@ An intelligent multi-agent AI system built with Google ADK for virtual clothing 
 - 🎯 **Interactive Coordinator**: User-driven workflow with LLM intelligence
 - 🖼️ **Image Manager Agent**: Auto-generates 3 views from 1 image (4 tools)
 - 👔 **Catalog Manager Agent**: Shows catalog and manages selection (2 tools)
-- ✨ **Try-On Specialist Agent**: Batch try-on on all 3 views automatically (4 tools)
-- 📊 **Clean Organization**: 10 tools distributed across 3 specialized sub-agents
+- ✨ **Try-On Specialist Agent**: Batch try-on on all 3 views + video generation (5 tools)
+- 📊 **Clean Organization**: 11 tools distributed across 3 specialized sub-agents
 - 🚀 **Fast Workflow**: Auto-start mode with automatic multi-view generation
 - 💬 **User Control**: Interactive with natural conversation flow
 - 🎨 **Complete View**: See garments from every angle instantly
+- 🎬 **Video Marketing**: Generate professional videos with Veo 3.1
 
 ## 🏗️ Architecture
 
@@ -56,11 +58,12 @@ COORDINATOR AGENT (LlmAgent - Interactive)
     │   ├─ list_catalog_clothes
     │   └─ select_catalog_cloth
     │
-    └─→ Try-On Specialist Agent (4 tools)
+    └─→ Try-On Specialist Agent (5 tools)
         ├─ virtual_tryon
         ├─ list_tryon_results
         ├─ get_rate_limit_status
-        └─ batch_multiview_tryon ⭐ NEW
+        ├─ batch_multiview_tryon ⭐ NEW
+        └─ generate_video_from_results 🎬 NEW
 ```
 
 **Why Interactive + Auto Batch?**
@@ -98,8 +101,14 @@ COORDINATOR AGENT (LlmAgent - Interactive)
 5. **View Results** → WAIT
    - User reviews all 3 results
    - Complete angle coverage
-   
-6. **Continue?** → INTERACTIVE
+
+6. **Generate Video (Optional)** 🎬 → INTERACTIVE
+   - System offers video generation
+   - Veo 3.1 creates professional video (~40-90s)
+   - Video showcases rotating fashion views
+   - Perfect for social media marketing
+
+7. **Continue?** → INTERACTIVE
    - Upload new person (→ auto-start + auto-multiview)
    - Try different garment (batch try-on all 3 views)
    - View all results
@@ -259,12 +268,62 @@ Agent: "✨ Virtual Try-On Complete - All 3 Views!
 1. **list_catalog_clothes** - Display all 10 catalog garments
 2. **select_catalog_cloth** - Select garment by ID (1-10)
 
-### Try-On Specialist Agent (4 tools)
+### Try-On Specialist Agent (5 tools)
 
 1. **virtual_tryon** - Execute single virtual try-on
 2. **list_tryon_results** - Show all try-on results
 3. **get_rate_limit_status** - Check cooldown status
 4. **batch_multiview_tryon** - Try-on garment on all 3 views automatically ⭐ NEW
+5. **generate_video_from_results** - Generate Veo 3.1 video from batch results 🎬 NEW
+
+#### Video Generation Tool (New!)
+
+**Purpose**: Create professional promotional videos from batch try-on results
+
+**When to use**:
+- After `batch_multiview_tryon` completes successfully
+- When user wants marketing content for social media
+- To showcase garments from all angles in video format
+
+**Default Configuration** (Auto-applied):
+```python
+{
+    "video_length": 8,          # 8 seconds duration
+    "aspect_ratio": "16:9",     # Horizontal format (YouTube/presentations)
+    "transition_style": "smooth_rotation"  # Smooth transitions between views
+}
+```
+
+**Example**:
+```python
+# After batch try-on completes with 3 results
+# Just call without parameters - uses defaults automatically
+generate_video_from_results()
+# Returns: Video URL for download
+# Processing time: 40-90 seconds
+# Output: 8-second video in 16:9 format
+```
+
+**Features**:
+- ✅ Uses Veo 2.0 model (veo-2.0-generate-001)
+- ✅ Image-to-video generation with your try-on results
+- ✅ Automatic loading of 3 batch results
+- ✅ Professional transitions between views
+- ✅ 16:9 aspect ratio perfect for YouTube/presentations
+- ✅ No text overlays (avoids spelling errors)
+- ✅ Downloadable video URL with 24-hour validity
+- ✅ 8-second duration with smooth rotation
+
+**Workflow Integration**:
+```text
+1. User uploads person image → 3 views generated
+2. User selects garment → Batch try-on creates 3 results
+3. System shows results → Offers video generation
+4. User accepts → 8-second video in 16:9 generated (~60-90s)
+5. User downloads video → Ready for YouTube/presentations!
+```
+5. User downloads video → Ready for social media!
+```
 
 ## 📁 File Structure
 
@@ -293,14 +352,18 @@ adk-design-agent/
 Create a `.env` file:
 
 ```bash
-# Required
+# Required for Virtual Try-On
 GEMINI_API_KEY=your_gemini_api_key_here
-GOOGLE_API_KEY=your_gemini_api_key_here
+
+# Required for Video Generation (Veo 3.1)
+GOOGLE_API_KEY=your_gemini_api_key_here  # Same key works for both
 
 # Optional
 GOOGLE_GENAI_USE_VERTEXAI=false
 RATE_LIMIT_COOLDOWN=5.0         # Cooldown seconds (default: 5.0)
 ```
+
+**Note**: `GOOGLE_API_KEY` is required for video generation. You can use the same API key as `GEMINI_API_KEY`.
 
 ### Rate Limiting Configuration
 
